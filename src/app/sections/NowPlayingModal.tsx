@@ -790,7 +790,7 @@ export default function NowPlayingModal({
                                     }} onLoad={() => setIsImageLoaded(true)}
                                         onError={() => setIsImageLoaded(true)} />
                                 )}
-                                <h3 className={`text-center md:px-2 px-1 md:w-[400px] w-[330px] mx-auto line-clamp-2 font-Lato ${isArtist(item) ? isExpanded ? "min-h-[4px]" : "min-h-10" : isExpanded ? "min-h-[50px]" : "absolute md:right-4 right-0 min-h-10 leading-tight w-[279px]"}`} >{overriddenTitle ? decodeHTMLEntities(overriddenTitle) : decodeHTMLEntities(name)}</h3>
+                                <h3 className={`text-center md:px-2 px-1 md:w-[400px] w-[330px] mx-auto line-clamp-2 font-Lato ${isArtist(item) ? isExpanded ? "min-h-[4px]" : "min-h-10" : isExpanded ? "min-h-[50px]" : "absolute md:right-4 right-0 min-h-10 leading-tight max-w-[280px]"}`} >{overriddenTitle ? decodeHTMLEntities(overriddenTitle) : decodeHTMLEntities(name)}</h3>
                                 <p className={`text-sm px-2 font-Lato text-gray-400 text-center md:w-[400px] w-[330px] mx-auto truncate ${isArtist(item) ? isExpanded ? "min-h-4 mb-0" : "min-h-0" : isExpanded ? "min-h-6 mb-1" : "hidden"}`}>{overriddenArtist ? decodeHTMLEntities(overriddenArtist) : isArtist(item) ? "" : currentSong?.primaryArtists}</p>
 
                                 <div>

@@ -237,7 +237,7 @@ export async function searchFromJioSaavn(query: string): Promise<Song[]> {
     if (!query || query.trim().length === 0) {
         return [];
     }
-
+    console.log("songs.ts => query:", query);
     try {
         const response = await fetch(`${apiUrl}/search?query=${encodeURIComponent(query)}`, {
             cache: "no-store"

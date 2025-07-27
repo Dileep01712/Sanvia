@@ -51,7 +51,7 @@ export default function HomepageContent({
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
-
+    console.log("HomepageContent => inputQuery:", inputQuery);
     return (
         <div className="min-h-screen flex flex-col bg-zinc-950">
             {/* Header */}

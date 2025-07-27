@@ -170,7 +170,7 @@ export default function SongSearch({
     }, [trimmedQuery]);
 
     const itemCount = loading && trimmedQuery ? (loadMoreClicked ? 12 * 2 : 12) : 12;
-
+    console.log("SearchSong => query:", query);
     return (
         <div className="md:p-6 p-2">
             <h2 className="w-full max-w-full break-words whitespace-normal overflow-hidden text-ellipsis text-xl font-Black-Marker text-white md:pb-5 pb-2 pl-1.5 select-none">{headingText}</h2>
