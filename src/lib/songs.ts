@@ -227,8 +227,7 @@ export async function downloadSong(
 }
 
 export async function searchFromJioSaavn(query: string): Promise<Song[]> {
-    // const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL;
-    const apiUrl = "http://localhost:8000";
+    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL;
 
     if (!apiUrl) {
         console.error("Render API URL not set in environment variables.");
