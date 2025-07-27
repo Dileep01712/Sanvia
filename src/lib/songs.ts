@@ -73,7 +73,7 @@ export async function fetchNowTrendingSongsFromJioSaavn(): Promise<Song[]> {
     }
 
     try {
-        const response = await fetch(`${apiUrl}/now-trending`, { cache: "no-store" });
+        const response = await fetch(`${apiUrl}/now-trending`, { next: { revalidate: 10800 } });
         if (!response.ok) {
             throw new Error(`Failed to fetch trending songs: ${response.statusText}`);
         }
@@ -215,7 +215,7 @@ export async function downloadSong(
 
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${songTitle}.mp3`;
+        a.download = `${songTitle}_MP3_320K.mp3`;
         a.click();
         a.remove();
 
@@ -223,5 +223,46 @@ export async function downloadSong(
     } catch (err) {
         console.error("Error downloading song:", err);
         onProgress(0);
+    }
+}
+
+export async function searchFromJioSaavn(query: string): Promise<Song[]> {
+    // const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL;
+    const apiUrl = "http://localhost:8000";
+
+    if (!apiUrl) {
+        console.error("Render API URL not set in environment variables.");
+        return [];
+    }
+
+    if (!query || query.trim().length === 0) {
+        return [];
+    }
+
+    try {
+        const response = await fetch(`${apiUrl}/search?query=${encodeURIComponent(query)}`, {
+            cache: "no-store"
+        });
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+            console.warn("Unexpected search response format, expected an array");
+            return [];
+        }
+
+        return data.map((item) => ({
+            id: item.id || "",
+            name: item.name || "",
+            primaryArtists: item.primaryArtists || "",
+            image: item.image || "",
+            downloadUrl: item.downloadUrl || "",
+            streamingUrl: item.streamingUrl || "",
+            url: item.url || "",
+        })) as Song[];
+
+    } catch (error) {
+        console.error("Error searching songs:", error);
+        return [];
     }
 }

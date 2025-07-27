@@ -15,7 +15,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "Sanvia",
-  description: "Sanvia is your personal music companion — stream, search, and vibe to your favorite songs with real-time lyrics.",
+  description: "Sanvia is your personal music companion — stream, search, and vibe to your favorite songs.",
   icons: {
     icon: "/images/icon.png"
   }

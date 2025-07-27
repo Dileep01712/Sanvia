@@ -231,18 +231,18 @@ export default function AlbumSongs({
     if (!isExpanded) return null;
 
     return (
-        <div className="grid grid-flow-row justify-items-center w-[500px]">
+        <div className="grid grid-flow-row justify-items-center md:w-[500px]">
             {isExpanded && (
-                <div className="grid grid-flow-row justify-items-center w-[450px] h-[580px]">
-                    <h1 className="font-semibold my-2 border-b border-dashed select-none h-7">{getHeading()}</h1>
+                <div className="grid grid-flow-row justify-items-center md:w-[450px] md:h-[580px] h-[545px]">
+                    <h1 className="font-Lato my-2 border-b border-dashed select-none h-7">{getHeading()}</h1>
 
                     {/* Scrollable Songs */}
-                    <div ref={scrollRef} onScroll={handleScroll} className={`justify-items-center overflow-y-auto w-[450px] scrollbar-hide rounded-lg ${isScrolled ? "transition-all duration-300 bg-gradient-to-b from-zinc-800 to-transparent" : ""} ${isHeightExpanded ? "h-[530px]" : "h-[490px]"}`}>
+                    <div ref={scrollRef} onScroll={handleScroll} className={`justify-items-center overflow-y-auto md:w-[450px] w-[330px] scrollbar-hide rounded-lg ${isScrolled ? "transition-all md:duration-300 bg-gradient-to-b from-zinc-800 to-transparent" : ""} ${isHeightExpanded ? "md:h-[530px] h-[502px]" : "md:h-[490px] hidden"}`}>
                         <ul>
                             {/* skeleton */}
                             {loading ? (
                                 Array.from({ length: 15 }).map((_, i) => (
-                                    <li key={i} className="flex items-center gap-3 min-h-20 p-2 w-[400px] animate-pulse bg-zinc-800 rounded-md border my-2 cursor-pointer transition-all hover:scale-105">
+                                    <li key={i} className="flex items-center gap-3 min-h-20 p-2 md:w-[400px] w-[310px] animate-pulse bg-zinc-800 rounded-md border my-2 cursor-pointer transition-all hover:scale-105">
                                         <div className="w-[90px] h-[70px] bg-zinc-700 rounded-md" />
                                         <div className="flex flex-col gap-2 w-full pl-4">
                                             <div className="h-4 bg-zinc-700 rounded w-3/4" />
@@ -256,11 +256,11 @@ export default function AlbumSongs({
                                     if (!image) return null;
 
                                     return (
-                                        <li key={song.id} onClick={() => onSongSelect(song, recommended)} className="will-change-transform flex items-center gap-3 min-h-20 p-2 w-[400px] justify-center group hover:scale-105 transition-all duration-300 hover:bg-zinc-700 rounded-md cursor-pointer border my-3">
+                                        <li key={song.id} onClick={() => onSongSelect(song, recommended)} className="will-change-transform flex items-center gap-3 min-h-20 p-2 md:w-[400px] w-[310px] justify-center group hover:scale-105 transition-all duration-300 hover:bg-zinc-700 rounded-md cursor-pointer border my-3">
                                             <Image src={image} alt={"Picture"} width={60} height={60} className="object-cover rounded-md select-none" />
                                             <div className="flex flex-col space-y-1 overflow-hidden w-full">
-                                                <h3 className="w-full line-clamp-2 leading-tight">{decodeHTMLEntities(song.name)}</h3>
-                                                <p className="text-xs text-gray-400 truncate w-full">
+                                                <h3 className="w-full line-clamp-2 leading-tight font-Lato">{decodeHTMLEntities(song.name)}</h3>
+                                                <p className="text-xs font-Lato text-gray-400 truncate w-full">
                                                     {song.artists?.primary?.map((a) => a.name).join(", ") ?? ""}
                                                 </p>
                                             </div>

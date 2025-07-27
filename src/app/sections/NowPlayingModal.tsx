@@ -21,13 +21,15 @@ import {
     faDownload,
     faAngleDown,
     faAngleUp,
-    faSpinner
+    faSpinner,
+    faX
 } from '@fortawesome/free-solid-svg-icons';
 
 type ModalItem = Song | Album | Artist;
 
 interface NowPlayingModalProps {
     isOpen: boolean;
+    setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
     isExpanded: boolean;
     setIsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
     item: ModalItem | null;
@@ -40,6 +42,7 @@ interface NowPlayingModalProps {
 
 export default function NowPlayingModal({
     isOpen,
+    setIsModalOpen,
     isExpanded,
     setIsExpanded,
     item,
@@ -428,11 +431,26 @@ export default function NowPlayingModal({
     }, [duration]);
 
     /**
+     * Updates currentTime and progress as user touch along the progress bar.
+     */
+    const updateCurrentTimeFromTouch = useCallback((clientX: number) => {
+        if (!audioRef.current || !progressBarRef.current) return;
+
+        const rect = progressBarRef.current.getBoundingClientRect();
+        const x = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+        const percentage = x / rect.width;
+        const newTime = percentage * duration;
+
+        setDragProgress(percentage);
+        audioRef.current.currentTime = newTime;
+        setCurrentTime(newTime);
+    }, [duration]);
+
+    /**
      * Listens to mouse events on the progress bar during dragging and updates time accordingly.
      */
     useEffect(() => {
-        const bar = progressBarRef.current;
-        if (!isDragging || !bar) return;
+        if (!isDragging) return;
 
         const handleMouseMove = (e: MouseEvent) => {
             updateCurrentTimeFromMouse(e);
@@ -443,16 +461,35 @@ export default function NowPlayingModal({
             setDragProgress(null);
         };
 
-        bar.addEventListener("mousemove", handleMouseMove);
-        bar.addEventListener("mouseup", handleMouseUp);
-        bar.addEventListener("mouseleave", handleMouseUp);
+        const handleTouchMove = (e: TouchEvent) => {
+            if (e.touches.length > 0) {
+                updateCurrentTimeFromTouch(e.touches[0].clientX);
+            }
+        };
+
+        const handleEnd = () => {
+            setIsDragging(false);
+            setDragProgress(null);
+        };
+
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+        window.addEventListener("mouseleave", handleMouseUp);
+
+        window.addEventListener("touchmove", handleTouchMove);
+        window.addEventListener("touchend", handleEnd);
+        window.addEventListener("touchcancel", handleEnd);
 
         return () => {
-            bar.removeEventListener("mousemove", handleMouseMove);
-            bar.removeEventListener("mouseup", handleMouseUp);
-            bar.removeEventListener("mouseleave", handleMouseUp);
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseup", handleMouseUp);
+            window.removeEventListener("mouseleave", handleMouseUp);
+
+            window.removeEventListener("touchmove", handleTouchMove);
+            window.removeEventListener("touchend", handleEnd);
+            window.removeEventListener("touchcancel", handleEnd);
         };
-    }, [isDragging, updateCurrentTimeFromMouse]);
+    }, [isDragging, updateCurrentTimeFromMouse, updateCurrentTimeFromTouch]);
 
     useEffect(() => {
         setOverriddenTitle(null);
@@ -555,6 +592,10 @@ export default function NowPlayingModal({
         setIsVolumeDragging(true);
     };
 
+    const handleVolumeTouchStart = () => {
+        setIsVolumeDragging(true);
+    };
+
     // Voulme Dragging
     useEffect(() => {
         const handleVolumeMouseMove = (e: MouseEvent) => {
@@ -569,12 +610,29 @@ export default function NowPlayingModal({
             }
         };
 
+        const handleVolumeTouchMove = (e: TouchEvent) => {
+            if (isVolumeDragging && e.touches.length > 0) {
+                updateVolumeByClientX(e.touches[0].clientX);
+            }
+        };
+
+        const handleVolumeTouchEnd = () => {
+            if (isVolumeDragging) {
+                setIsVolumeDragging(false);
+            }
+        };
+
         window.addEventListener("mousemove", handleVolumeMouseMove);
         window.addEventListener("mouseup", handleVolumeMouseUp);
+
+        window.addEventListener("touchmove", handleVolumeTouchMove);
+        window.addEventListener("touchend", handleVolumeTouchEnd);
 
         return () => {
             window.removeEventListener("mousemove", handleVolumeMouseMove);
             window.removeEventListener("mouseup", handleVolumeMouseUp);
+            window.removeEventListener("touchmove", handleVolumeTouchMove);
+            window.removeEventListener("touchend", handleVolumeTouchEnd);
         };
     }, [isVolumeDragging]);
 
@@ -647,6 +705,38 @@ export default function NowPlayingModal({
         }
     }, [currentSong, overriddenTitle, overriddenArtist]);
 
+    // Close Modal
+    const handleCloseModal = () => {
+        setIsExpanded(true);
+        setIsModalOpen(false);
+        setIsPlaying(false);
+        setStreamingUrl("");
+
+        // 🧹 Properly stop and clear audio
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            audioRef.current.removeAttribute("src");
+            audioRef.current.load();
+        }
+
+        // 🧹 Clear Media Session metadata
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: "",
+                artist: "",
+                artwork: []
+            });
+
+            navigator.mediaSession.setActionHandler("play", null);
+            navigator.mediaSession.setActionHandler("pause", null);
+        }
+
+        // 🧹 OPTIONAL: Reset currentSong and other related states
+        setCurrentIndex(-1);
+        setPlaylist([]);
+        // Or: setCurrentSong(null) if you're using that state
+    };
 
     /**
      * Prevents rendering if modal is closed or no song is selected.
@@ -667,60 +757,70 @@ export default function NowPlayingModal({
                 />
             )}
 
-            <div className={`fixed inset-0 z-40 transition-opacity duration-500 ${isExpanded ? "bg-black/80 pointer-events-auto" : "bg-transparent pointer-events-none"}`} />
+            <div className={`fixed inset-0 z-40 transition-opacity md:duration-500 ${isExpanded ? "bg-black/80 pointer-events-auto" : "bg-transparent pointer-events-none"}`} />
 
-            <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none">
+            <div className="fixed inset-0 z-50 flex items-end justify-center pointer-events-none m-2 md:m-0">
 
-                <div onClick={(e) => e.stopPropagation()} className={`absolute justify-items-center pointer-events-auto w-[500px] bg-zinc-950 text-white border-2 shadow-lg transition-all duration-500 ease-in-out ${isExpanded ? "h-[650px] rounded-2xl top-[41%] translate-y-[-40%] pt-10" : "h-[100px] rounded-t-2xl translate-y-0 pt-8 bottom-[1px]"}`} >
+                <div className={`md:hidden ${isExpanded ? "hidden" : "fixed bottom-0 w-full h-10 backdrop-blur bg-black rounded-t-xl pointer-events-none"}`} />
 
-                    <Button tabIndex={-1} className={`absolute left-1/2 transform -translate-x-1/2 bg-zinc-950 hover:bg-zinc-950 opacity-70 transition-opacity hover:opacity-100 focus:outline-none outline-none ${isExpanded ? "w-9 top-0.5" : "w-7 h-7 top-0.5"}`} onClick={() => setIsExpanded((v) => !v)}>
-                        <FontAwesomeIcon icon={isExpanded ? faAngleDown : faAngleUp} className="text-white" />
-                    </Button>
+                <div onClick={(e) => e.stopPropagation()} className={`fixed justify-items-center pointer-events-auto md:w-[500px] w-[350px] bg-zinc-950 text-white border-2 shadow-lg md:transition-all md:duration-500 md:ease-in-out ${isExpanded ? "md:h-[650px] rounded-2xl top-[41%] translate-y-[-40%] pt-10" : "md:h-[100px] h-[135px] md:rounded-t-2xl md:rounded-b-none rounded-2xl translate-y-0 pt-8 bottom-4 md:bottom-[1px]"}`} >
 
-                    <div className="justify-items-center w-[500px] h-[585px] border-t-2" >
+                    <div className="flex justify-center items-center">
+                        <Button tabIndex={-1} title={isExpanded ? "Collapse" : "Expand"} className={`absolute transform -translate-x-full bg-zinc-950 hover:bg-zinc-950 opacity-70 transition-opacity hover:opacity-100 focus:outline-none outline-none ${isExpanded ? "w-9 top-0.5" : "w-7 h-7 top-0.5"}`} onClick={() => setIsExpanded((v) => !v)}>
+                            <FontAwesomeIcon icon={isExpanded ? faAngleDown : faAngleUp} className="text-white" />
+                        </Button>
+
+                        <Button tabIndex={-1} title='Close' className={`absolute transform translate-x-full bg-zinc-950 hover:bg-zinc-950 opacity-70 transition-opacity hover:opacity-100 focus:outline-none outline-none ${isExpanded ? "w-9 top-0.5" : "w-7 h-7 top-0.5"}`} onClick={handleCloseModal}>
+                            <FontAwesomeIcon icon={faX} className="text-white" />
+                        </Button>
+                    </div>
+
+                    <div className="justify-items-center md:w-[500px] w-[350px] md:h-[585px] h-[580px] border-t-2 p-2 md:p-0" >
 
                         {activePage === 0 && (
-                            <div className='h-[575px]'>
+                            <div className='md:h-[575px]'>
                                 {!isImageLoaded && !isTimeoutOver ? (
-                                    <div className={`${isExpanded ? "w-[400px] h-[400px] my-2" : "absolute left-2.5 w-[55px] h-[55px] my-1"} transition-all duration-500`}>
+                                    <div className={`${isExpanded ? "md:w-[400px] md:h-[400px] h-[334px] my-2" : "absolute left-2.5 md:w-[55px] md:h-[55px] my-1"} transition-all duration-500`}>
                                         <div className="w-full h-full bg-zinc-800 rounded-md animate-pulse" />
                                     </div>
                                 ) : (
-                                    <Image src={image} alt={decodeHTMLEntities(name)} width={isExpanded ? 400 : 55} height={isExpanded ? 400 : 55} onDoubleClick={handleDoubleClick} className={`select-none transition-all duration-500 
-                                    ${isExpanded ? "my-2" : "absolute left-2.5 my-1"} ${!fanCount && isRounded ? "rounded-full animate-spin-slow" : "rounded-md"} ${fanCount ? "" : "cursor-pointer"}`} style={{
-                                            animationPlayState: isImageLoaded && currentTime && isPlaying ? 'running' : 'paused', boxShadow: (!fanCount && isRounded)
-                                                ? "0 0 10px rgba(255, 255, 255, 1)" : "none"
-                                        }} onLoad={() => setIsImageLoaded(true)}
+                                    <Image src={image} alt={decodeHTMLEntities(name)} width={isExpanded ? 400 : 55} height={isExpanded ? 400 : 55} onDoubleClick={handleDoubleClick} className={`select-none transition-all md:duration-500 ${isExpanded ? "my-2" : "absolute left-2.5 z-"} ${!fanCount && isRounded ? "rounded-full animate-spin-slow" : "rounded-md"} ${fanCount ? "" : "cursor-pointer"}`} style={{
+                                        animationPlayState: isImageLoaded && currentTime && isPlaying ? 'running' : 'paused', boxShadow: (!fanCount && isRounded)
+                                            ? "0 0 10px rgba(255, 255, 255, 1)" : "none"
+                                    }} onLoad={() => setIsImageLoaded(true)}
                                         onError={() => setIsImageLoaded(true)} />
-
-
                                 )}
-                                <h3 className={`text-center px-12 max-w-[400px] line-clamp-2 ${isArtist(item) ? isExpanded ? "min-h-[4px]" : "min-h-10" : isExpanded ? "min-h-[50px]" : "min-h-10 leading-tight"}`} >{overriddenTitle ? decodeHTMLEntities(overriddenTitle) : decodeHTMLEntities(name)}</h3>
-                                <p className={`text-sm text-gray-400 text-center max-w-[400px] truncate ${isArtist(item) ? isExpanded ? "min-h-4 mb-0" : "min-h-0" : isExpanded ? "min-h-6 mb-1" : "hidden"}`}>{overriddenArtist ? decodeHTMLEntities(overriddenArtist) : isArtist(item) ? "" : currentSong?.primaryArtists}</p>
+                                <h3 className={`text-center md:px-2 px-1 md:w-[400px] w-[330px] mx-auto line-clamp-2 font-Lato ${isArtist(item) ? isExpanded ? "min-h-[4px]" : "min-h-10" : isExpanded ? "min-h-[50px]" : "absolute md:right-4 right-0 min-h-10 leading-tight w-[279px]"}`} >{overriddenTitle ? decodeHTMLEntities(overriddenTitle) : decodeHTMLEntities(name)}</h3>
+                                <p className={`text-sm px-2 font-Lato text-gray-400 text-center md:w-[400px] w-[330px] mx-auto truncate ${isArtist(item) ? isExpanded ? "min-h-4 mb-0" : "min-h-0" : isExpanded ? "min-h-6 mb-1" : "hidden"}`}>{overriddenArtist ? decodeHTMLEntities(overriddenArtist) : isArtist(item) ? "" : currentSong?.primaryArtists}</p>
 
                                 <div>
                                     {currentSong && "downloadUrl" in currentSong ? (
-                                        <div className='flex flex-col'>
-                                            <div className={`select-none ${isExpanded ? "w-[399px]" : "flex absolute right-10 bottom-2 w-[377px]"}`}>
+                                        <div className='flex flex-col md:my-0 my-2'>
+                                            <div className={`select-none mx-auto md:my-0 my-1 ${isExpanded ? "md:w-[400px] w-[320px]" : "flex absolute right-10 md:bottom-2 bottom-1 md:w-[377px] w-[290px]"}`}>
 
                                                 {!isImageLoaded && !isTimeoutOver ? (
                                                     <div className="w-full h-2 bg-gray-600 rounded-[2px] animate-pulse" />
                                                 ) : (
-                                                    <div ref={progressBarRef} className="w-full h-2 bg-gray-600 rounded-[2px] relative cursor-pointer" onMouseDown={handleMouseDown}>
+                                                    <div ref={progressBarRef} className="w-full h-2 bg-gray-600 rounded-[2px] relative cursor-pointer" onMouseDown={handleMouseDown} onTouchStart={(e) => {
+                                                        if (e.touches.length > 0) {
+                                                            setIsDragging(true);
+                                                            updateCurrentTimeFromTouch(e.touches[0].clientX);
+                                                        }
+                                                    }}>
                                                         <div className="absolute top-0 left-0 h-full bg-white rounded-[2px]" style={{ width: `${effectiveProgress * 100}%` }} />
                                                         <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full border-2 border-blue-400" style={{ left: `${effectiveProgress * 100}%`, transform: "translate(-50%, -50%)" }} />
                                                     </div>
                                                 )}
                                                 <div className={`border border-transparent ${isExpanded ? "" : "flex absolute right-0 bottom-3"}`}>
                                                     {!isExpanded && (
-                                                        <span className="absolute text-xs text-gray-300 ml-2">
+                                                        <span className="absolute text-xs font-Lato text-gray-300 ml-2">
                                                             {formatTime(currentTime)}
                                                         </span>
                                                     )}
                                                 </div>
 
                                                 {isExpanded && (
-                                                    <div className="flex justify-between text-sm text-gray-300 pt-1">
+                                                    <div className="flex justify-between text-sm font-Lato text-gray-300 pt-1">
                                                         <span>{formatTime(currentTime)}</span>
                                                         <span>{formatTime(duration)}</span>
                                                     </div>
@@ -728,7 +828,7 @@ export default function NowPlayingModal({
                                             </div>
 
 
-                                            <div className={`grid grid-flow-col mx-auto my-1 ${isExpanded ? "" : "hidden"}`}>
+                                            <div className={`grid grid-flow-col mx-auto md:my-1 my-2 ${isExpanded ? "" : "hidden"}`}>
 
                                                 <div className="relative flex group items-center h-7">
                                                     {volume === 0 ? (
@@ -740,13 +840,19 @@ export default function NowPlayingModal({
                                                     <div ref={volumeBarRef} onClick={handleVolumeBarClick} onMouseDown={(e) => {
                                                         updateVolumeByClientX(e.clientX);
                                                         handleVolumeMouseDown();
-                                                    }} className="absolute top-10 w-24 h-2.5 cursor-pointer">
+                                                    }} onTouchStart={(e) => {
+                                                        if (e.touches.length > 0) {
+                                                            updateVolumeByClientX(e.touches[0].clientX);
+                                                            handleVolumeTouchStart();
+                                                        }
+                                                    }} className="absolute top-10 w-24 h-2.5 cursor-pointer md:my-0 my-2 ml-1.5">
+
                                                         <div className="w-24 bg-gray-600 rounded-[2px] cursor-pointer">
                                                             <div className="absolute top-0 left-0 h-2 bg-white rounded-[2px]" style={{ width: `${volume * 100}%` }} />
                                                             <div className="absolute top-[36%] -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-white rounded-full border-2 border-blue-400" style={{ left: `${volume * 100}%`, transform: "translate(-50%, -50%)" }} />
                                                         </div>
                                                         <div className="absolute -right-10 -top-[11px] select-none cursor-default">
-                                                            <span className="text-xs text-white">{Math.round(volume * 100)}%</span>
+                                                            <span className="text-xs font-Lato text-white">{Math.round(volume * 100)}%</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -768,7 +874,7 @@ export default function NowPlayingModal({
 
                                                 <div className="flex items-center">
                                                     <FontAwesomeIcon onClick={!isDownloading ? handleDownload : undefined} icon={isDownloading ? faSpinner : faDownload} spin={isDownloading} title={isDownloading ? 'Downloading...' : 'Download'} className={`ml-0 h-7 w-7 cursor-pointer transition-all duration-300 ${isDownloading ? 'text-blue-400 opacity-70 animate-spin' : 'text-white'}`} />
-                                                    <span className="text-xs text-white absolute bottom-5 right-[86px] select-none">{isDownloading ? `${downloadProgress}%` : ''}</span>
+                                                    <span className="text-xs font-Lato text-white absolute md:bottom-5 bottom-8 md:right-[86px] select-none">{isDownloading ? `${downloadProgress}%` : ''}</span>
                                                 </div>
 
                                             </div>
@@ -776,7 +882,7 @@ export default function NowPlayingModal({
                                     ) : isArtistView ? (
                                         <>
                                             {fanCount && (
-                                                <p className={`text-sm text-center text-gray-400 select-none ${isExpanded ? "border-b border-dashed pb-2" : "border-b border-transparent"}`}>{fanCount} Fans</p>
+                                                <p className={`text-sm font-Lato text-center text-gray-400 select-none ${isExpanded ? "border-b border-dashed pb-2" : "border-b border-transparent"}`}>{fanCount} Fans</p>
                                             )}
 
                                             <div className={`grid grid-flow-col mx-auto justify-items-center my-3 ${isExpanded ? "" : "hidden"}`}>
@@ -799,9 +905,9 @@ export default function NowPlayingModal({
                         />
 
                         {isExpanded && (
-                            <div className="absolute bottom-1 w-full flex justify-center gap-2">
+                            <div className="absolute bottom-1 md:w-full flex justify-center gap-2 w-[342px] z-10">
                                 {[0, 1].map((index) => (
-                                    <div key={index} onClick={() => setActivePage(index)} className={`w-3 h-3 rounded-full cursor-pointer ${activePage === index ? "bg-white animate-pulse border-2 border-blue-700" : "bg-gray-400"}`} />
+                                    <div key={index} onClick={() => setActivePage(index)} className={`w-3 h-3 rounded-full cursor-pointer md:mr-0 mr-1 ${activePage === index ? "bg-white animate-pulse border-2 border-blue-700" : "bg-gray-400"}`} />
                                 ))}
                             </div>
                         )}

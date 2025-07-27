@@ -55,18 +55,18 @@ export default function HomepageContent({
     return (
         <div className="min-h-screen flex flex-col bg-zinc-950">
             {/* Header */}
-            <header className={`flex justify-between py-3 px-8 sticky top-0 z-50 text-white backdrop-blur transition-all duration-300 ${isScrolled ? "bg-zinc-950/40 shadow-xl shadow-gray-700/40 border-b border-transparent" : "bg-zinc-950 border-b border-zinc-800"}`}>
+            <header className={`flex justify-between py-3 md:px-8 px-2 sticky top-0 z-50 text-white backdrop-blur md:transition-all md:duration-300 ${isScrolled ? "bg-zinc-950/40 shadow-xl shadow-gray-700/40 border-b border-transparent" : "bg-zinc-950 border-b border-zinc-800"}`}>
 
                 {searchItems && searchQuery ?
-                    <Button variant={"secondary"} onClick={() => { setInputQuery(""); setSearchItems(false); }} className={`flex items-center gap-2 select-none group h-10 ${isModalOpen && isExpanded ? "opacity-70 pointer-events-none" : ""}`}>
+                    <Button variant={"secondary"} onClick={() => { setInputQuery(""); setSearchItems(false); }} className={`flex items-center gap-2 select-none group h-10 mr-1.5 font-Lato ${isModalOpen && isExpanded ? "opacity-70 pointer-events-none" : ""}`}>
                         <FontAwesomeIcon icon={faArrowLeft} className="transition-transform transform group-hover:-translate-x-1" />
                         Back
                     </Button>
                     :
-                    <Image src="/images/logo.png" alt="Sanvia Logo" height={40} width={90} className={`select-none !w-[90px] !h-[40px] !max-w-none rounded-md ${isModalOpen && isExpanded ? "opacity-70 pointer-events-none" : ""}`} />
+                    <Image src="/images/logo.png" alt="Sanvia Logo" height={40} width={90} className={`select-none md:!w-[90px] md:!h-[40px] !max-w-none rounded-md pr-1 my-auto ${isModalOpen && isExpanded ? "opacity-70 pointer-events-none" : ""}`} />
                 }
 
-                <div className={`flex items-center bg-zinc-800 rounded-lg focus-within:border-2 focus-within:border-transparent border-2 border-zinc-600 focus-within:ring-2 focus-within:ring-zinc-200 transition-all duration-300 w-72 focus-within:w-1/2 ${isModalOpen && isExpanded ? "opacity-70 pointer-events-none" : ""}`}>
+                <div className={`flex items-center bg-zinc-800 rounded-lg md:focus-within:border-2 focus-within:border-transparent border md:border-2 border-zinc-600 focus-within:ring-2 focus-within:ring-zinc-200 md:transition-all md:duration-300 w-72 md:focus-within:w-1/2 ${isModalOpen && isExpanded ? "opacity-70 pointer-events-none" : ""}`}>
                     <Input placeholder="Search" className="h-10 border-none rounded-l-lg focus-visible:ring-transparent select-none font-Lato" value={inputQuery} onChange={(e) => setInputQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && inputQuery.trim()) { setSearchQuery(inputQuery.trim()); setSearchItems(true); setArtistHelper(true); } }} />
                     <Button className="h-10 rounded-none rounded-r-lg" onClick={() => { if (inputQuery.trim()) { setSearchQuery(inputQuery.trim()); setSearchItems(true); setArtistHelper(true); } }}>
                         <FontAwesomeIcon icon={faMagnifyingGlass} />
@@ -80,7 +80,7 @@ export default function HomepageContent({
                 <SongSearch query={searchQuery} onSongSelect={openModal} />
             ) : (
                 // Main Section
-                <main className="flex-1 bg-zinc-900/70 text-white p-6">
+                <main className="flex-1 bg-zinc-900/70 text-white md:p-6 p-2">
                     <SongSection title="New Releases">
                         {newReleases.length === 0
                             ? Array.from({ length: 12 }).map((_, index) => <SkeletonCard key={index} />)
@@ -115,16 +115,16 @@ export default function HomepageContent({
                 </main>
             )}
 
-            <NowPlayingModal isOpen={isModalOpen} isExpanded={isExpanded} setIsExpanded={setIsExpanded} item={selectedItem} playlist={playlist} topArtists={topArtists} onArtistChange={(artist) => setSelectedItem(artist)} setPlaylist={setPlaylist} artistHelper={artistHelper} />
+            <NowPlayingModal isOpen={isModalOpen} setIsModalOpen={setIsModalOpen} isExpanded={isExpanded} setIsExpanded={setIsExpanded} item={selectedItem} playlist={playlist} topArtists={topArtists} onArtistChange={(artist) => setSelectedItem(artist)} setPlaylist={setPlaylist} artistHelper={artistHelper} />
 
             {/* Footer */}
-            <footer className="bg-black border-t border-zinc-800 text-gray-300 font-Lato text-sm px-9 py-3 h-56 select-none">
+            <footer className={`bg-zinc-950 border-t border-zinc-800 text-gray-300 font-Lato text-sm md:px-9 px-3 py-3 select-none ${isExpanded ? "md:h-44 h-64" : "md:h-56 h-96"}`}>
 
                 <div className="border-b border-zinc-800 pb-3 text-center">
                     © 2025 Sanvia. All rights reserved.
                 </div>
 
-                <div className="grid grid-cols-2 py-5">
+                <div className="grid md:grid-cols-2 grid-rows-2 py-5">
                     <div className="flex justify-start">
                         <p>
                             <b>Sanvia&nbsp;</b> - &quot;A musical path inspired by someone special.&quot;
@@ -132,7 +132,7 @@ export default function HomepageContent({
                         </p>
                     </div>
 
-                    <div className="flex flex-col justify-end text-right">
+                    <div className="flex flex-col justify-end md:text-right">
                         <p>
                             Note: Music data is powered by the unofficial JioSaavn API.
                         </p>
@@ -157,11 +157,11 @@ function SongSection({
     children: React.ReactNode;
 }) {
     return (
-        <section className="pb-16 last:pb-7">
+        <section className="md:pb-16 pb-12 last:pb-7">
             <h2 className="flex items-center text-xl font-Black-Marker text-white pb-2 pl-1.5 select-none">
                 {title}
                 {tooltip && (
-                    <div className="relative group ml-2">
+                    <div className="relative group ml-2 hidden md:block">
                         <svg className="relative h-5 cursor-pointer -top-0.5" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} fill="none">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
                         </svg>
@@ -174,7 +174,7 @@ function SongSection({
                     </div>
                 )}
             </h2>
-            <div className="grid gap-8 p-2 grid-cols-6 grid-rows-2">{children}</div>
+            <div className="grid md:gap-8 gap-4 p-2 md:grid-cols-6 grid-cols-2 md:grid-rows-2">{children}</div>
         </section>
     );
 }
@@ -182,15 +182,15 @@ function SongSection({
 // Individual Song Card
 function SongCard({ song, onClick }: { song: Song; onClick?: () => void }) {
     return (
-        <div onClick={onClick} className="w-[212px] rounded-xl transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-gray-400/40 cursor-pointer group" >
+        <div onClick={onClick} className="md:w-[212px] md:rounded-xl rounded-lg transition-all duration-300 ease-in-out md:hover:scale-105 md:hover:shadow-lg md:hover:shadow-gray-400/40 cursor-pointer group" >
             <div className="relative">
-                <Image src={song.image} alt={song.name} width={212} height={180} className="object-cover rounded-lg pb-0.5 group-hover:brightness-75 transition-all duration-300 ease-in-out select-none min-h-[212px]" />
+                <Image src={song.image} alt={song.name} width={212} height={180} className="object-cover rounded-lg pb-0.5 group-hover:brightness-75 transition-all duration-300 ease-in-out select-none md:min-h-[212px] min-h-[156px]" />
                 <button className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black bg-opacity-80 rounded-full opacity-0 group-hover:opacity-100 w-12 h-12 flex items-center justify-center transition-all duration-300 ease-in-out">
                     <FontAwesomeIcon icon={faPlay} className="text-white h-6 w-6 relative left-0.5" />
                 </button>
             </div>
-            <h3 className="text-sm font-semibold truncate px-2.5 text-center transition-all duration-300 ease-in-out">{song.name}</h3>
-            <p className="text-sm text-gray-400 truncate p-2.5 pt-0 text-center transition-all duration-300 ease-in-out">{song.primaryArtists}</p>
+            <h3 className="text-sm font-Lato truncate px-2.5 text-center transition-all duration-300 ease-in-out">{song.name}</h3>
+            <p className="text-sm font-Lato text-gray-400 truncate p-2.5 pt-0 text-center transition-all duration-300 ease-in-out">{song.primaryArtists}</p>
         </div >
     );
 }
@@ -198,10 +198,10 @@ function SongCard({ song, onClick }: { song: Song; onClick?: () => void }) {
 // Individual Artist Card
 function ArtistCard({ artist, onClick }: { artist: Artist; onClick?: () => void }) {
     return (
-        <div onClick={onClick} className="w-[212px] rounded-xl transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-gray-400/40 cursor-pointer group">
-            <Image src={artist.image} alt={artist.name} width={212} height={180} className="object-cover rounded-lg pb-0.5 transition-all duration-300 ease-in-out select-none" />
-            <h3 className="text-sm font-semibold truncate px-2.5 text-center transition-all duration-300 ease-in-out">{artist.name}</h3>
-            <p className="text-sm text-gray-400 truncate p-2.5 pt-0 text-center transition-all duration-300 ease-in-out">
+        <div onClick={onClick} className="md:w-[212px] md:rounded-xl rounded-lg transition-all duration-300 ease-in-out md:hover:scale-105 md:hover:shadow-lg md:hover:shadow-gray-400/40 cursor-pointer group">
+            <Image src={artist.image} alt={artist.name} width={212} height={180} className="object-cover rounded-lg pb-0.5 transition-all duration-300 ease-in-out select-none md:min-h-[212px] min-h-[156px]" />
+            <h3 className="text-sm font-Lato truncate px-2.5 text-center transition-all duration-300 ease-in-out">{artist.name}</h3>
+            <p className="text-sm font-Lato text-gray-400 truncate p-2.5 pt-0 text-center transition-all duration-300 ease-in-out">
                 {Number(artist.follower_count).toLocaleString("en-IN")} Fans
             </p>
         </div>
@@ -211,8 +211,9 @@ function ArtistCard({ artist, onClick }: { artist: Artist; onClick?: () => void 
 // Skeleton
 function SkeletonCard() {
     return (
-        <div className="w-[212px] rounded-xl bg-zinc-800 cursor-pointer transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-gray-400/40 pb-1">
-            <div className="h-52 bg-zinc-700 animate-pulse rounded-md"></div>
+        <div className="md:w-[212px] md:rounded-xl rounded-lg bg-zinc-800 cursor-pointer transition-all duration-300 ease-in-out md:hover:scale-105 md:hover:shadow-lg md:
+        md:hover:shadow-gray-400/40 pb-1">
+            <div className="md:h-52 h-40 bg-zinc-700 animate-pulse rounded-md"></div>
             <div className="h-6 bg-zinc-700 rounded w-3/4 mx-auto animate-pulse my-1"></div>
             <div className="h-6 bg-zinc-700 rounded w-3/4 mx-auto animate-pulse"></div>
         </div>
