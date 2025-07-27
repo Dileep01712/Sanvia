@@ -107,7 +107,7 @@ export async function fetchAlbumsFromJioSaavn(): Promise<Album[]> {
     }
 
     try {
-        const response = await fetch(`${apiUrl}/albums`, { cache: "no-store" });
+        const response = await fetch(`${apiUrl}/albums`, { next: { revalidate: 10800 } });
         if (!response.ok) {
             throw new Error(`Failed to fetch albums: ${response.statusText}`);
         }
