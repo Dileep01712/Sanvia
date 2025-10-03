@@ -14,11 +14,32 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Sanvia",
+  title: "Sanvia - Personal Music Companion",
   description: "Sanvia is your personal music companion — stream, search, and vibe to your favorite songs.",
   icons: {
-    icon: "/images/icon.png"
-  }
+    icon: "/images/icon.png",
+  },
+  openGraph: {
+    title: "Sanvia - Personal Music Companion",
+    description: "Stream, search, and vibe to your favorite songs.",
+    url: "https://sanvia.onrender.com/",
+    siteName: "Sanvia",
+    images: [
+      {
+        url: "/images/icon.png",
+        width: 1200,
+        height: 630,
+        alt: "Sanvia App Preview",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sanvia - Personal Music Companion",
+    description: "Stream, search, and vibe to your favorite songs.",
+    images: ["/images/icon.png"],
+  },
 };
 
 export default function RootLayout({

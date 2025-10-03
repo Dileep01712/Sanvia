@@ -69,6 +69,11 @@ const config: Config = {
 					paused: 'paused',
 				}
 			},
+			screens: {
+				'sm-range': { min: '470px', max: '669px' },
+				'md-range': { min: '670px', max: '920px' },
+				'lg-range': { min: '921px', max: '1350px' },
+			},
 		}
 	},
 	plugins: [require('tailwind-scrollbar-hide')],

@@ -66,7 +66,7 @@ export async function fetchNewReleasesFromJioSaavn(): Promise<Song[]> {
 }
 
 export async function fetchNowTrendingSongsFromJioSaavn(): Promise<Song[]> {
-    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL
+    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL;
 
     if (!apiUrl) {
         throw new Error("Render API URL not set in environment variables.");
@@ -100,7 +100,7 @@ export async function fetchNowTrendingSongsFromJioSaavn(): Promise<Song[]> {
 }
 
 export async function fetchAlbumsFromJioSaavn(): Promise<Album[]> {
-    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL
+    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL;
 
     if (!apiUrl) {
         throw new Error("Render API URL not set in environment variables.");
@@ -120,7 +120,7 @@ export async function fetchAlbumsFromJioSaavn(): Promise<Album[]> {
                 name: item.name || "",
                 primaryArtists: item.primaryArtists || "",
                 image: item.image || "",
-                downloadUrl: item.perma_url || "",
+                downloadUrl: item.downloadUrl || "",
             })) as Album[];
         }
 
@@ -132,7 +132,7 @@ export async function fetchAlbumsFromJioSaavn(): Promise<Album[]> {
 }
 
 export async function fetchTopArtistsFromJioSaavn(): Promise<Artist[]> {
-    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL
+    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL;
 
     if (!apiUrl) {
         throw new Error("Render API URL not set in environment variables.");
@@ -223,45 +223,5 @@ export async function downloadSong(
     } catch (err) {
         console.error("Error downloading song:", err);
         onProgress(0);
-    }
-}
-
-export async function searchFromJioSaavn(query: string): Promise<Song[]> {
-    const apiUrl = process.env.NEXT_PUBLIC_SANVIA_BACKEND_API_URL;
-
-    if (!apiUrl) {
-        console.error("Render API URL not set in environment variables.");
-        return [];
-    }
-
-    if (!query || query.trim().length === 0) {
-        return [];
-    }
-    console.log("songs.ts => query:", query);
-    try {
-        const response = await fetch(`${apiUrl}/search?query=${encodeURIComponent(query)}`, {
-            cache: "no-store"
-        });
-
-        const data = await response.json();
-
-        if (!Array.isArray(data)) {
-            console.warn("Unexpected search response format, expected an array");
-            return [];
-        }
-
-        return data.map((item) => ({
-            id: item.id || "",
-            name: item.name || "",
-            primaryArtists: item.primaryArtists || "",
-            image: item.image || "",
-            downloadUrl: item.downloadUrl || "",
-            streamingUrl: item.streamingUrl || "",
-            url: item.url || "",
-        })) as Song[];
-
-    } catch (error) {
-        console.error("Error searching songs:", error);
-        return [];
     }
 }
