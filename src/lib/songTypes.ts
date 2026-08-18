@@ -49,14 +49,18 @@ const PLAYLIST_BY_ID_API = process.env.NEXT_PUBLIC_PLAYLIST_BY_ID_API_URL;
 const ALBUM_SEARCH_API = process.env.NEXT_PUBLIC_ALBUM_SEARCH_API_URL;
 
 export async function fetchNewReleasesFromJioSaavn(retries = 3): Promise<Song[]> {
-    if (!SANVIA_BASE_API) {
-        console.error("Render API URL not set in environment variables.");
+    const apiBase = process.env.SANVIA_BASE_API_URL || process.env.NEXT_PUBLIC_SANVIA_BASE_API_URL;
+    if (!apiBase) {
         return [];
     }
 
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            const response = await fetch(`${SANVIA_BASE_API}/new-releases`, {
+            const targetUrl = apiBase.includes('/api/proxy')
+                ? `${process.env.SANVIA_BASE_API_URL}/new-releases`
+                : `${apiBase}/new-releases`;
+
+            const response = await fetch(targetUrl, {
                 cache: "no-store",
                 signal: AbortSignal.timeout(10000)
             });
@@ -96,7 +100,7 @@ export async function fetchNowTrendingSongs(): Promise<Song[]> {
     const LIMIT = 12;
 
     if (!PLAYLIST_BY_ID_API) {
-        throw new Error("Render API URL not set in environment variables.");
+        return [];
     }
 
     const endpoint = `${PLAYLIST_BY_ID_API}${TRENDING_PLAYLIST_ID}&limit=${LIMIT}`;
@@ -104,12 +108,12 @@ export async function fetchNowTrendingSongs(): Promise<Song[]> {
     try {
         const response = await fetch(endpoint);
         if (!response.ok) {
-            throw new Error(`Failed to fetch trending playlist: ${response.status} ${response.statusText}`);
+            return [];
         }
 
         const data = await response.json();
         if (!data.success || !data.data || !Array.isArray(data.data.songs)) {
-            throw new Error("Unexpected API response structure");
+            return [];
         }
 
         const songs = data.data.songs;
@@ -154,7 +158,7 @@ export async function fetchNowTrendingSongs(): Promise<Song[]> {
         });
 
     } catch (error) {
-        console.error("Error fetching trending songs:", error);
+        return [];
         throw error;
     }
 }
