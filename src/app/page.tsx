@@ -1,21 +1,21 @@
 import {
-  fetchNowTrendingSongsFromJioSaavn,
+  fetchNowTrendingSongs,
   fetchNewReleasesFromJioSaavn,
-  fetchAlbumsFromJioSaavn,
+  fetchRandomAlbums,
   fetchTopArtistsFromJioSaavn,
-} from "@/lib/songs";
-import HomepageContent from "./sections/HomepageContent";
+} from "@/lib/songTypes";
+import Home from "./components/Home/HomeView";
 
-export default async function Home() {
+export default async function App() {
   const newReleases = await fetchNewReleasesFromJioSaavn();
-  const nowTrendingSongs = await fetchNowTrendingSongsFromJioSaavn();
-  const albums = await fetchAlbumsFromJioSaavn();
+  const nowTrendingSongs = await fetchNowTrendingSongs();
+  const albums = await fetchRandomAlbums();
   const topArtists = (await fetchTopArtistsFromJioSaavn()).sort(
     (a, b) => Number(b.follower_count) - Number(a.follower_count)
   );
-
+  
   return (
-    <HomepageContent
+    <Home
       newReleases={newReleases}
       nowTrendingSongs={nowTrendingSongs}
       albums={albums}

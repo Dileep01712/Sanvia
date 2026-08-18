@@ -1,6 +1,6 @@
 # 🎵 Sanvia - Music Streaming Web App
 
-![Sanvia Preview](./assets/images/image_0.png)
+![Sanvia Preview](./assets/images/image_0.webp)
 
 **Sanvia** is a sleek, modern, and responsive music streaming web application inspired by [JioSaavn](https://www.jiosaavn.com/). It delivers a smooth, high-performance music experience across devices, built using the latest web technologies including **Next.js 14**, **Tailwind CSS**, and **ShadCN UI**.
 
@@ -15,7 +15,7 @@
 ## 🚀 Features
 
 ### 🎧 New Releases
-![New Releases](./assets/images/image_1.png)
+![New Releases](./assets/images/image_1.webp)
 
 - Display of the latest music songs/albums.
 - Clickable music cards to start playing instantly.
@@ -23,9 +23,8 @@
 ---
 
 ### 🎶 Interactive Music Player
-![Music Player Default](./assets/images/image_2.png)
-![Music Player Disc View](./assets/images/image_3.png)
-![Album Songs](./assets/images/image_4.png)
+![Music Player Default](./assets/images/image_2.webp)
+![Album Songs](./assets/images/image_3.webp)
 
 - Fully featured bottom music player with a clean and minimal design.
 - Controls include: play/pause, seek, volume, repeat, shuffle, and download.
@@ -38,7 +37,7 @@
 ---
 
 ### 📜 Album Details
-![Album Songs](./assets/images/image_5.png)
+![Album Songs](./assets/images/image_4.webp)
 
 - View the full list of random albums.
 - Instantly play from the album view.
@@ -46,7 +45,7 @@
 ---
 
 ### 🔍 Search Functionality with Pagination
-![Search Page](./assets/images/image_6.png)
+![Search Page](./assets/images/image_5.webp)
 
 - Search songs by artist or song name.
 - Pagination with **“Load More”** button to fetch and display additional results seamlessly.

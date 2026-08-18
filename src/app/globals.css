@@ -1,6 +1,40 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+@plugin "tailwind-scrollbar-hide";
+
+@custom-variant dark (&:is(.dark *));
+
+/* * {
+  outline: 1px solid red !important;
+} */
+
+@theme {
+  --font-sans: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
 
 @layer utilities {
   .text-balance {
@@ -9,25 +43,35 @@
 }
 
 @font-face {
-  font-family: 'Black-Marker';
-  src: url('fonts/black_marker.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+  font-family: 'Satoshi';
+  src: url('./fonts/Satoshi-Regular.otf') format('opentype');
+  font-weight: 400;
 }
 
 @font-face {
-  font-family: 'Lato';
-  src: url('fonts/LatoRegular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+  font-family: 'Satoshi';
+  src: url('./fonts/Satoshi-Medium.otf') format('opentype');
+  font-weight: 500;
 }
 
-.font-Black-Marker {
-  font-family: 'Black-Marker';
+@font-face {
+  font-family: 'Satoshi';
+  src: url('./fonts/Satoshi-Bold.otf') format('opentype');
+  font-weight: 700;
 }
 
-.font-Lato {
-  font-family: 'Lato';
+@keyframes floatDot {
+  0% {
+    opacity: 0.1;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.1;
+  }
 }
 
 @layer base {
@@ -87,22 +131,11 @@
   }
 }
 
-
-
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
-}
-
-input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px var(--background) inset !important;
-  -webkit-text-fill-color: white !important;
-  transition: background-color 5000s ease-in-out 0s !important;
 }
 
 input[type="search"]::-webkit-search-cancel-button {
