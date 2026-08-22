@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Song } from "@/lib/songTypes";
-import { getSmartRecommendations } from "../utils/recommendations";
+import { generateRecommendations } from "../utils/recommendations";
 import { getBestQualityDownload, normalizeTitle } from "@/lib/helpers";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
@@ -11,7 +11,7 @@ type EnvConfig = {
     ALBUM_BY_LINK_API: string;
 };
 
-export const useAlbumRecommendations = (
+export const useRelatedSongs = (
     currentSong: Song | null,
     artistName: string | undefined,
 ): { reset: () => void } => {
@@ -79,7 +79,7 @@ export const useAlbumRecommendations = (
             const state = usePlayerStore.getState();
             const activeSource = state.activeSource;
 
-            if (activeSource === 'dragged') {
+            if (activeSource === 'queued') {
                 if (!isStale()) setLoading(false);
                 return;
             }
@@ -93,7 +93,7 @@ export const useAlbumRecommendations = (
                 artist: state.artistSongs,
                 recommended: state.recommendedSongs,
                 homeFeed: state.homeFeed,
-                dragged: state.draggedSongs,
+                queued: state.queuedSongs,
             };
 
             const currentArray = sourceMap[activeSource] || [];
@@ -119,29 +119,31 @@ export const useAlbumRecommendations = (
                 albumUrl = currentSong.url;
             }
 
+            const isExplicitAlbum = currentSong?.type === 'album';
+            const isExplicitSong = currentSong?.type === 'song';
             const isAlbumContext = !!albumUrl;
             const isSongContext = !!currentSong?.id;
             const isForeground = activeSource === 'homeFeed';
-            const isStealth = isLastInSource && (activeSource === 'album' || activeSource === 'recommended' || activeSource === 'artist');
+            const isBackgroundFetch = isLastInSource && (activeSource === 'album' || activeSource === 'recommended' || activeSource === 'artist');
 
             let intent: 'album' | 'recommended' | 'artist' | null = null;
 
-            if (isStealth) {
+            if (isBackgroundFetch) {
                 intent = 'recommended';
             }
             else if (activeSource === 'recommended') {
                 intent = null;
             }
-            else if (isAlbumContext) {
+            else if (
+                isExplicitAlbum ||
+                (isAlbumContext && (!isExplicitSong || (activeSource === 'album' && albumUrl === lastFetched.current.album)))
+            ) {
                 intent = 'album';
             }
-            else if (!currentSong && artistName?.trim()) {
-                intent = 'artist';
-            }
-            else if (isSongContext && !isAlbumContext) {
+            else if (isExplicitSong || isSongContext) {
                 intent = 'recommended';
             }
-            else if (artistName?.trim() && !isAlbumContext && !isSongContext) {
+            else if (!currentSong && artistName?.trim()) {
                 intent = 'artist';
             }
 
@@ -157,7 +159,7 @@ export const useAlbumRecommendations = (
 
             try {
                 const prepareFetch = () => {
-                    if (!isStealth) {
+                    if (!isBackgroundFetch) {
                         setContentType(intent as 'album' | 'recommended' | 'artist');
                         setAlbumSongs([]);
                         setRecommendedSongs([]);
@@ -223,11 +225,14 @@ export const useAlbumRecommendations = (
 
                     let recommended: Song[] = [];
                     if (data.success && Array.isArray(data.data) && data.data.length) {
-                        recommended = await getSmartRecommendations(data.data[0], env.SONG_SEARCH_PRIMARY_API, env.SONG_SEARCH_FALLBACK_API, controller.signal);
+                        const sessionHistory = usePlayerStore.getState().history.map(h => h.song);
+                        const fullContextArray = [...sessionHistory, data.data[0]];
+
+                        recommended = await generateRecommendations(fullContextArray, env.SONG_SEARCH_PRIMARY_API, env.SONG_SEARCH_FALLBACK_API, controller.signal);
                     }
 
                     if (!isStale()) {
-                        if (isStealth && currentSong) {
+                        if (isBackgroundFetch && currentSong) {
                             const newBatch = recommended.filter(s => s.id !== currentSong.id).slice(0, 14);
 
                             let newDeck: number[] = [];

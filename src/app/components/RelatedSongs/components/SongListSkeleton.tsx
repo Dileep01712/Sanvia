@@ -1,4 +1,4 @@
-export default function LoadingSkeleton({ count = 15 }: { count?: number }) {
+export default function SongListSkeleton({ count = 15 }: { count?: number }) {
     return (
         <>
             {Array.from({ length: count }).map((_, i) => (

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { onborading } from "@/lib/onboarding";
+import { onboarding } from "@/lib/onboarding";
 import OnboardingTooltip from "./OnboardingTooltip";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
@@ -32,67 +32,67 @@ const TOOLTIPS: TooltipItem[] = [
 ];
 
 export default function OnboardingTooltipManager({ id }: OnboardingTooltipManagerProps) {
-    const [visible, setVisible] = useState(false);
+    const [isVisible, setIsVisible] = useState(false);
     const currentTip = TOOLTIPS.find(t => t.id === id);
 
     const isExpanded = usePlayerStore((state) => state.isExpanded);
 
-    const tryShow = useCallback(() => {
+    const evaluateTooltipVisibility = useCallback(() => {
         if (!currentTip || !isExpanded) {
-            setVisible(false);
+            setIsVisible(false);
             return
         }
 
-        if (onborading.isSeen(currentTip.id)) {
-            setVisible(false);
+        if (onboarding.hasSeenTooltip(currentTip.id)) {
+            setIsVisible(false);
             return;
         }
 
-        const nextUnseen = onborading.getNextUnseen(TOOLTIPS);
+        const nextUnseen = onboarding.getNextUnseen(TOOLTIPS);
         if (nextUnseen?.id !== currentTip.id) {
-            setVisible(false);
+            setIsVisible(false);
             return;
         }
 
-        if (!onborading.acquireLock(currentTip.id)) {
-            setVisible(false);
+        if (!onboarding.acquireLock(currentTip.id)) {
+            setIsVisible(false);
             return;
         }
 
-        setVisible(true);
+        setIsVisible(true);
     }, [currentTip, isExpanded]);
 
     useEffect(() => {
         return () => {
-            if (currentTip) onborading.releaseLock(currentTip.id);
+            if (currentTip) onboarding.releaseLock(currentTip.id);
         };
     }, [currentTip]);
 
     useEffect(() => {
-        const update = () => tryShow();
-        window.addEventListener("storage", update);
-        window.addEventListener("tooltip_update", update);
+        const handleStorageChange = () => evaluateTooltipVisibility();
+        window.addEventListener("storage", handleStorageChange);
+        window.addEventListener("tooltip_update", handleStorageChange);
 
         return () => {
-            window.removeEventListener("storage", update);
-            window.removeEventListener("tooltip_update", update);
+            window.removeEventListener("storage", handleStorageChange);
+            window.removeEventListener("tooltip_update", handleStorageChange);
         }
-    }, [tryShow]);
+    }, [evaluateTooltipVisibility]);
 
     useEffect(() => {
-        tryShow();
-    }, [tryShow]);
+        evaluateTooltipVisibility();
+    }, [evaluateTooltipVisibility]);
 
     const handleClose = () => {
         if (currentTip) {
-            onborading.markSeen(currentTip.id);
-            onborading.releaseLock(currentTip.id);
+            onboarding.markTooltipAsSeen(currentTip.id);
+            onboarding.releaseLock(currentTip.id);
         }
 
-        setVisible(false);
+        setIsVisible(false);
     };
 
-    if (!visible || !currentTip || !isExpanded) return null;
+    if (!isVisible || !currentTip || !isExpanded) return null;
 
     return (
         <OnboardingTooltip

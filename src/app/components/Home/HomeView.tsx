@@ -2,15 +2,15 @@
 
 import React, { useCallback, useRef } from "react";
 import { Song, Album, Artist } from "@/lib/songTypes";
-import MainSection from "./MainSection";
+import HomeFeed from "./HomeFeed";
 import Header from "../layout/Header";
 import Footer from "../layout/Footer";
-import { useHomepageSearch } from "./hooks/useHomeSearch";
-import Search from "../Search/SearchResults";
-import NowPlayingModal from "../Player/PlayerView";
+import { useHomeSearch } from "./hooks/useHomeSearch";
+import SearchResults from "../Search/SearchResults";
+import PlayerView from "../Player/PlayerView";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
-interface Props {
+interface HomeViewProps {
     newReleases: Song[];
     nowTrendingSongs: Song[];
     albums: Album[];
@@ -19,21 +19,22 @@ interface Props {
 
 type ModalItem = Song | Album | Artist;
 
-export default function Home({
+export default function HomeView({
     newReleases,
     nowTrendingSongs,
     albums,
     topArtists,
-}: Props) {
+}: HomeViewProps) {
     const {
         inputQuery,
         setInputQuery,
         searchQuery,
-        searchItems,
+        isSearchActive,
         isValidQuery,
         isScrolled,
         closeSearch,
-    } = useHomepageSearch();
+        handleSearchSubmit,
+    } = useHomeSearch();
 
     const openModal = usePlayerStore((state) => state.openModal);
     const setPageData = usePlayerStore((state) => state.setPageData);
@@ -44,12 +45,6 @@ export default function Home({
         hasHydrated.current = true;
     }
 
-    const handleSearchSubmit = useCallback(() => {
-        if (inputQuery.trim() && isValidQuery) {
-            setInputQuery(inputQuery.trim());
-        }
-    }, [inputQuery, isValidQuery, setInputQuery]);
-
     const handleClearSearch = useCallback(() => {
         closeSearch();
     }, [closeSearch]);
@@ -58,7 +53,7 @@ export default function Home({
         openModal(item, songs);
     }, [openModal]);
 
-    const showBackButton = searchItems;
+    const showBackButton = isSearchActive;
 
     return (
         <div className="min-h-screen flex flex-col bg-black">
@@ -72,16 +67,16 @@ export default function Home({
                 isScrolled={isScrolled}
             />
 
-            {searchItems ? (
-                <Search
+            {isSearchActive ? (
+                <SearchResults
                     query={searchQuery}
                     onSongSelect={handleSongSelect}
                 />
             ) : (
-                <MainSection />
+                <HomeFeed />
             )}
 
-            <NowPlayingModal />
+            <PlayerView />
 
             <Footer />
         </div>

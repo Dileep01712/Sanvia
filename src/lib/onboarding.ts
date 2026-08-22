@@ -7,12 +7,12 @@ export interface TooltipItem {
     position: "top" | "center";
 }
 
-export const onborading = {
-    isSeen(id: string): boolean {
+export const onboarding = {
+    hasSeenTooltip(id: string): boolean {
         return localStorage.getItem(SEEN_PREFIX + id) === "true";
     },
 
-    markSeen(id: string) {
+    markTooltipAsSeen(id: string) {
         localStorage.setItem(SEEN_PREFIX + id, "true");
         window.dispatchEvent(new Event("tooltip_update"));
     },
@@ -34,7 +34,7 @@ export const onborading = {
 
     getNextUnseen(tooltips: TooltipItem[]): TooltipItem | null {
         for (const t of tooltips) {
-            if (!this.isSeen(t.id)) return t;
+            if (!this.hasSeenTooltip(t.id)) return t;
         }
         return null;
     }

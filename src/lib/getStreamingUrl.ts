@@ -72,15 +72,15 @@ async function fetchWithRetry(url: string): Promise<Response> {
     throw new Error(`Request failed after ${MAX_RETRIES} attempts: ${lastError?.message}`);
 }
 
-function createEmptyResult(): StreamingResult {
+function createEmptyStreamingResult(): StreamingResult {
     return { url: "", name: "", primaryArtists: "" };
 }
 
-function createResult(url: string, name = "", artists = ""): StreamingResult {
+function createStreamingResult(url: string, name = "", artists = ""): StreamingResult {
     return { url, name, primaryArtists: artists };
 }
 
-export async function getStreamingUrlFromSaavn(
+export async function getStreamingUrl(
     id: string,
     name: string,
     rawDownloadUrl: string | QualityUrl[],
@@ -94,7 +94,7 @@ export async function getStreamingUrlFromSaavn(
 
     if (!urlStr) {
         console.warn("[Saavn] Invalid or missing downloadUrl: ", { id, name });
-        return createEmptyResult();
+        return createEmptyStreamingResult();
     }
 
     if (
@@ -103,12 +103,12 @@ export async function getStreamingUrlFromSaavn(
         urlStr.includes(".mp3") ||
         urlStr.includes("saavncdn.com")
     ) {
-        return createResult(urlStr);
+        return createStreamingResult(urlStr);
     }
 
     if (!SONG_BY_LINK_API || !ALBUM_BY_LINK_API) {
         console.error("[Saavn] Missing API environment variables");
-        return createEmptyResult();
+        return createEmptyStreamingResult();
     }
 
     try {
@@ -121,9 +121,9 @@ export async function getStreamingUrlFromSaavn(
             if (data.success && Array.isArray(data.data) && data.data.length > 0) {
                 const song = data.data[0];
                 const url = getBestQualityDownload(song.downloadUrl);
-                return url ? createResult(url) : createEmptyResult();
+                return url ? createStreamingResult(url) : createEmptyStreamingResult();
             }
-            return createEmptyResult();
+            return createEmptyStreamingResult();
         }
 
         if (urlStr.includes("/album/")) {
@@ -148,17 +148,17 @@ export async function getStreamingUrlFromSaavn(
                     const primaryArtists = selected.artists?.primary
                         ?.map((artist: Artist) => artist.name)
                         .join(", ") || "Unknown Artist";
-                    return createResult(url, selected.name, primaryArtists);
+                    return createStreamingResult(url, selected.name, primaryArtists);
                 }
             }
-            return createEmptyResult();
+            return createEmptyStreamingResult();
         }
 
         console.warn("[Saavn] Unsupported downloadUrl pattern", urlStr);
-        return createEmptyResult();
+        return createEmptyStreamingResult();
 
     } catch (error) {
         console.error("[Saavn] Error fetching streaming URL:", error);
-        return createEmptyResult();
+        return createEmptyStreamingResult();
     }
 }

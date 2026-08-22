@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-export const useHomepageUI = (): { isScrolled: boolean } => {
+export const useScroll = (): { isScrolled: boolean } => {
     const [isScrolled, setIsScrolled] = useState<boolean>(false);
 
     const handleScroll = useCallback(() => {

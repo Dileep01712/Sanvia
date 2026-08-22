@@ -2,20 +2,21 @@ import { useState, useEffect, useCallback } from "react";
 
 const VALID_INPUT_QUERY_REGEX = /^[\u0900-\u097Fa-zA-Z0-9 ()"]+$/;
 
-interface UseHomepageSearchReturn {
+interface UseHomeSearchReturn {
     inputQuery: string;
     setInputQuery: React.Dispatch<React.SetStateAction<string>>;
     searchQuery: string;
-    searchItems: boolean;
+    isSearchActive: boolean;
     isValidQuery: boolean;
     isScrolled: boolean;
     closeSearch: () => void;
+    handleSearchSubmit: () => void;
 }
 
-export const useHomepageSearch = (): UseHomepageSearchReturn => {
+export const useHomeSearch = (): UseHomeSearchReturn => {
     const [inputQuery, setInputQuery] = useState<string>("");
     const [searchQuery, setSearchQuery] = useState<string>("");
-    const [searchItems, setSearchItems] = useState<boolean>(false);
+    const [isSearchActive, setIsSearchActive] = useState<boolean>(false);
     const [isValidQuery, setIsValidQuery] = useState<boolean>(true);
     const [isScrolled, setIsScrolled] = useState<boolean>(false);
 
@@ -31,26 +32,35 @@ export const useHomepageSearch = (): UseHomepageSearchReturn => {
     const closeSearch = useCallback(() => {
         setInputQuery("");
         setSearchQuery("");
-        setSearchItems(false);
+        setIsSearchActive(false);
         setIsValidQuery(true);
     }, []);
 
     useEffect(() => {
-        const trimmed = inputQuery.trim();
+        const sanitizedQuery = inputQuery.trim();
 
-        if (!trimmed) {
+        if (!sanitizedQuery) {
             setIsValidQuery(true);
             setSearchQuery("");
             return;
         }
 
-        if (VALID_INPUT_QUERY_REGEX.test(trimmed)) {
-            setSearchQuery(trimmed);
-            setSearchItems(true);
+        if (VALID_INPUT_QUERY_REGEX.test(sanitizedQuery)) {
             setIsValidQuery(true);
         } else {
-            setSearchItems(false);
             setIsValidQuery(false);
+        }
+    }, [inputQuery]);
+
+    const handleSearchSubmit = useCallback(() => {
+        const sanitizedQuery = inputQuery.trim();
+
+        if (!sanitizedQuery) {
+            setSearchQuery("");
+            setIsSearchActive(true);
+        } else if (VALID_INPUT_QUERY_REGEX.test(sanitizedQuery)) {
+            setSearchQuery(sanitizedQuery);
+            setIsSearchActive(true);
         }
     }, [inputQuery]);
 
@@ -58,9 +68,10 @@ export const useHomepageSearch = (): UseHomepageSearchReturn => {
         inputQuery,
         setInputQuery,
         searchQuery,
-        searchItems,
+        isSearchActive,
         isValidQuery,
         isScrolled,
         closeSearch,
+        handleSearchSubmit,
     };
 };

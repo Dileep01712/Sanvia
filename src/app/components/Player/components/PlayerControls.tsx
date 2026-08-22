@@ -48,9 +48,9 @@ export default function PlayerControls({
     const isShuffle = usePlayerStore((state) => state.isShuffle);
     const toggleShuffle = usePlayerStore((state) => state.toggleShuffle);
 
-    const baseIcon = "text-[1.8em] w-8 cursor-pointer transition-all md:duration-300";
-    const activeIcon = "text-white drop-shadow-[0_0_8px_rgba(96,165,250,0.6)] scale-105";
-    const inactiveIcon = "text-white/50 hover:text-white";
+    const baseIconClass = "text-[1.8em] w-8 cursor-pointer transition-all md:duration-300";
+    const activeIconClass = "text-white scale-105";
+    const inactiveIconClass = "text-white/50 hover:text-white";
 
     return (
         <div className="mx-auto flex w-full max-w-100 items-center justify-between">
@@ -58,21 +58,28 @@ export default function PlayerControls({
                 icon={isMuted || volume === 0 ? faVolumeXmark : faVolumeHigh}
                 onClick={onToggleMute}
                 title={isMuted || volume === 0 ? "Unmute" : "Mute"}
-                className={`${baseIcon} ${isMuted ? activeIcon : inactiveIcon}`}
+                className={`${baseIconClass} ${isMuted ? activeIconClass : inactiveIconClass}`}
             />
 
-            <FontAwesomeIcon
-                icon={faRepeat}
+            <button
                 onClick={onToggleRepeat}
                 title={isRepeat ? "Repeat Off" : "Repeat On"}
-                className={`${baseIcon} ${isRepeat ? activeIcon : inactiveIcon}`}
-            />
+                className={`relative flex items-center justify-center ${baseIconClass} ${isRepeat ? activeIconClass : inactiveIconClass} cursor-pointer`}
+            >
+                <FontAwesomeIcon icon={faRepeat} className="relative z-0" />
+
+                {isRepeat && (
+                    <span className="absolute z-10 text-[10px] font-bold">
+                        1
+                    </span>
+                )}
+            </button>
 
             <FontAwesomeIcon
                 icon={faBackwardStep}
                 onClick={previous}
                 title="Previous"
-                className={`${baseIcon} ${inactiveIcon} hover:-translate-x-0.5`}
+                className={`${baseIconClass} ${inactiveIconClass} hover:-translate-x-0.5`}
             />
 
             <button
@@ -92,14 +99,14 @@ export default function PlayerControls({
                 icon={faForwardStep}
                 onClick={next}
                 title="Next"
-                className={`${baseIcon} ${inactiveIcon} hover:translate-x-0.5`}
+                className={`${baseIconClass} ${inactiveIconClass} hover:translate-x-0.5`}
             />
 
             <FontAwesomeIcon
                 icon={faShuffle}
                 onClick={toggleShuffle}
                 title={isShuffle ? "Shuffle Off" : "Shuffle On"}
-                className={`${baseIcon} ${isShuffle ? activeIcon : inactiveIcon}`}
+                className={`${baseIconClass} ${isShuffle ? activeIconClass : inactiveIconClass}`}
             />
 
             <div className="relative flex items-center">
@@ -108,10 +115,10 @@ export default function PlayerControls({
                     spin={isDownloading}
                     onClick={!isDownloading ? onDownloadRequest : undefined}
                     title={isDownloading ? "Downloading..." : "Download"}
-                    className={`${baseIcon} ${isDownloading ? activeIcon : inactiveIcon} ${!streamingUrl ? "pointer-events-none" : ""}`}
+                    className={`${baseIconClass} ${isDownloading ? activeIconClass : inactiveIconClass} ${!streamingUrl ? "pointer-events-none" : ""}`}
                 />
                 {isDownloading && (
-                    <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 select-none rounded bg-black/50 px-px text-xs text-white">
+                    <span className="absolute -bottom-6.5 left-1/2 -translate-x-1/2 select-none rounded bg-black/50 text-xs text-white">
                         {downloadProgress}%
                     </span>
                 )}

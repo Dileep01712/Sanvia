@@ -6,55 +6,50 @@ interface SectionHeadingProps {
     artistName?: string;
 }
 
-export default function SectionHeading({
-    artistName,
-}: SectionHeadingProps) {
-    const loading = usePlayerStore((state) => state.loading);
+export default function SectionHeading({ artistName }: SectionHeadingProps) {
+    const isLoading = usePlayerStore((state) => state.loading);
     const contentType = usePlayerStore((state) => state.contentType);
     const recommendedSongsLength = usePlayerStore((state) => state.recommendedSongs.length);
     const albumSongsLength = usePlayerStore((state) => state.albumSongs.length);
 
-    const firstArtist = useMemo(
-        () => artistName?.split(",")[0]?.trim() || "",
-        [artistName]
-    );
+    const headingText = useMemo(() => {
+        if (!contentType) return null;
 
-    const actualLength = useMemo(() => {
-        if (contentType === "album") return albumSongsLength;
-        if (contentType === "recommended" || contentType === "artist") {
-            return recommendedSongsLength;
+        const firstArtist = contentType === "artist" && artistName
+            ? decodeHTMLEntities(artistName.split(",")[0].trim())
+            : "";
+
+        const totalSongCount = contentType === "album"
+            ? albumSongsLength
+            : recommendedSongsLength;
+
+        if (isLoading) {
+            switch (contentType) {
+                case "album": return "Loading album tracks...";
+                case "recommended": return "Finding suggestions for you...";
+                case "artist": return `Loading ${firstArtist}'s tracks...`;
+                default: return "Loading...";
+            }
         }
-    }, [contentType, albumSongsLength, recommendedSongsLength]);
 
-    const loadingTexts: Record<string, string> = {
-        album: "Loading album tracks...",
-        recommended: "Finding suggestions for you...",
-        artist: `Loading ${decodeHTMLEntities(firstArtist)}'s tracks...`,
-        default: "Loading...",
-    };
+        if (totalSongCount === 0) {
+            switch (contentType) {
+                case "album": return "No album tracks available.";
+                case "recommended": return "No suggestions found.";
+                case "artist": return `No tracks found for ${firstArtist}.`;
+                default: return null;
+            }
+        }
 
-    const headingTexts: Record<string, string> = {
-        album: "Album Songs",
-        recommended: "You Might Also Like",
-        artist: `${decodeHTMLEntities(firstArtist)}'s Tracks`,
-    };
+        switch (contentType) {
+            case "album": return "Album Songs";
+            case "recommended": return "You Might Also Like";
+            case "artist": return `${firstArtist}'s Tracks`;
+            default: return null;
+        }
+    }, [contentType, isLoading, albumSongsLength, recommendedSongsLength, artistName]);
 
-    const emptyTexts: Record<string, string> = {
-        album: "No album tracks available.",
-        recommended: "No suggestions found.",
-        artist: `No tracks found for ${decodeHTMLEntities(firstArtist)}.`,
-    };
+    if (!headingText) return null;
 
-
-    if (loading) {
-        return <>{loadingTexts[contentType ?? "default"]}</>;
-    }
-
-    if (actualLength === 0) {
-        if (contentType === null) return null;
-        return <>{emptyTexts[contentType]}</>;
-    }
-
-    if (contentType === null) return null;
-    return <>{headingTexts[contentType]}</>;
+    return <>{headingText}</>;
 }

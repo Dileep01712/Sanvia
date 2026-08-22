@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { decodeHTMLEntities } from "@/lib/helpers";
 
 export async function POST(request: NextRequest) {
     try {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
             .replace(/[/\\?%*:|"<>]/g, ' ')
             .trim();
 
-        const fileName = `${safeTitle} - ${safeArtist} (320K) - Sanvia.mp3`;
+        const fileName = `${decodeHTMLEntities(safeTitle)} - ${decodeHTMLEntities(safeArtist)} (320K) - Sanvia.mp3`;
 
         const headers = new Headers();
         headers.set('Content-Type', response.headers.get('content-type') || 'audio/mpeg');

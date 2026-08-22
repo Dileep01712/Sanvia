@@ -28,16 +28,18 @@ const AnimatedEllipsis: React.FC = () => {
     );
 };
 
-export default function Search({
+interface SearchResultsProps {
+    query: string;
+    onSongSelect: (song: Song, results: Song[]) => void;
+}
+
+export default function SearchResults({
     query,
     onSongSelect
-}: {
-    query: string,
-    onSongSelect: (song: Song, results: Song[]) => void;
-}) {
-    const loading = usePlayerStore((state) => state.loading);
+}: SearchResultsProps) {
+    const isLoading = usePlayerStore((state) => state.loading);
     const setLoading = usePlayerStore((state) => state.setLoading);
-    const trimmedQuery = query.trim();
+    const sanitizedQuery = query.trim();
     const [results, setResults] = useState<Song[]>([]);
     const [hasMore, setHasMore] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -73,10 +75,10 @@ export default function Search({
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
 
-                const resultsData = Array.isArray(data?.data?.results) ? data.data?.results : [];
+                const fetchedSongs = Array.isArray(data?.data?.results) ? data.data?.results : [];
                 const total = data?.data?.total ?? null;
 
-                return { songs: resultsData, total };
+                return { songs: fetchedSongs, total };
             } catch (error) {
                 if ((error as Error).name === 'AbortError') throw error;
                 console.error("Fetch error:", error);
@@ -86,8 +88,8 @@ export default function Search({
         []
     );
 
-    const loadMoreSongs = useCallback(async (isInitialLoad = false, currentQuery = trimmedQuery) => {
-        if (!currentQuery || (!hasMore && !isInitialLoad) || (loading && !isInitialLoad)) return;
+    const fetchNextPage = useCallback(async (isInitialLoad = false, currentQuery = sanitizedQuery) => {
+        if (!currentQuery || (!hasMore && !isInitialLoad) || (isLoading && !isInitialLoad)) return;
 
         setLoading(true);
         setError(null);
@@ -145,14 +147,10 @@ export default function Search({
         } finally {
             if (!controller.signal.aborted) setLoading(false);
         }
-    }, [trimmedQuery, hasMore, loading, setLoading, fetchPage]);
+    }, [sanitizedQuery, hasMore, isLoading, setLoading, fetchPage]);
 
     useEffect(() => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-
-        if (!trimmedQuery) {
+        if (!sanitizedQuery) {
             setResults([]);
             setHasMore(true);
             setError(null);
@@ -167,41 +165,47 @@ export default function Search({
         bufferRef.current = [];
         displayedIdsRef.current.clear();
 
-        loadMoreSongs(true, trimmedQuery);
+        fetchNextPage(true, sanitizedQuery);
+
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [trimmedQuery]);
+    }, [sanitizedQuery]);
 
     const handleLoadMore = () => {
-        loadMoreSongs(false, trimmedQuery);
+        fetchNextPage(false, sanitizedQuery);
     };
 
-    const headingContent = useMemo(() => {
+    const dynamicHeadingText = useMemo(() => {
         if (error) {
             return <span className="text-red-400">{error}</span>;
         }
 
-        if (loading && results.length === 0) {
+        if (isLoading && results.length === 0) {
             return (
                 <span className="animate-in fade-in duration-300">
-                    Searching for &quot;{trimmedQuery}&quot;
+                    Searching for &quot;{sanitizedQuery}&quot;
                     <AnimatedEllipsis />
                 </span>
             );
         }
 
         if (results.length > 0) {
-            return `Top results for "${trimmedQuery}"`;
+            return `Top results for "${sanitizedQuery}"`;
         }
 
-        if (!loading && results.length === 0) {
-            return `We couldn't find anything for "${trimmedQuery}"`;
+        if (!isLoading && results.length === 0) {
+            return `We couldn't find anything for "${sanitizedQuery}"`;
         }
 
         return "";
-    }, [trimmedQuery, loading, results.length, error]);
+    }, [sanitizedQuery, isLoading, results.length, error]);
 
-    if (!trimmedQuery) {
+    if (!sanitizedQuery) {
         return (
             <div className="w-full h-[60vh] flex flex-col items-center justify-center px-4 select-none animate-in fade-in duration-500">
                 <div className="h-24 w-24 rounded-full bg-white/5 flex items-center justify-center mb-6 border-2 border-white/50">
@@ -217,12 +221,12 @@ export default function Search({
         );
     }
 
-    const showInitialLoading = loading && trimmedQuery && results.length === 0;
+    const showInitialLoading = isLoading && sanitizedQuery && results.length === 0;
 
     return (
-        <div className="w-full md:px-6 md:pt-6">
-            <h2 className="mb-2 w-full wrap-break-word pl-1.5 font-display text-2xl font-bold text-white select-none md:mb-5 md:text-4xl">
-                {headingContent}
+        <div className="w-full md:px-6">
+            <h2 className="mb-2 w-full wrap-break-word pl-2 font-display text-2xl font-bold text-white select-none md:my-5.5 md:text-4xl">
+                {dynamicHeadingText}
             </h2>
 
             <div className={`grid w-full grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 p-2 gap-4 md:gap-6 lg:gap-10 
@@ -245,6 +249,7 @@ export default function Search({
 
                         const normalizedSong: Song = {
                             ...song,
+                            type: song.type || "song",
                             name: decodeHTMLEntities(song.name),
                             primaryArtists,
                             image: image || "",
@@ -265,10 +270,10 @@ export default function Search({
                 <Button
                     variant={"default"}
                     onClick={handleLoadMore}
-                    disabled={!trimmedQuery || !hasMore || loading}
+                    disabled={!sanitizedQuery || !hasMore || isLoading}
                     className="mx-auto my-20 flex h-10 w-fit cursor-pointer select-none items-center justify-center bg-zinc-800 px-6 font-sans font-normal text-white transition-colors hover:bg-zinc-700"
                 >
-                    {loading && trimmedQuery ? "Loading..." : "Load More"}
+                    {isLoading && sanitizedQuery ? "Loading..." : "Load More"}
                 </Button>
             )}
         </div>

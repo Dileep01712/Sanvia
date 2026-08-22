@@ -45,6 +45,13 @@ export default function Header({
         }
     };
 
+    const handleFormSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!isBlocked && isValidQuery) {
+            onSearchSubmit();
+        }
+    };
+
     useEffect(() => {
         const handleShortcut = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLocaleLowerCase() === "m") {
@@ -92,11 +99,13 @@ export default function Header({
                 />
             )}
 
-            <div className={`flex w-72 items-center rounded-xl border border-zinc-600 sm:border-2 sm:transition-all sm:duration-300 sm:focus-within:w-1/2 md:focus-within:w-1/2 lg:focus-within:w-1/3 
-                ${isValidQuery
-                    ? "focus-within:border-zinc-200"
-                    : "focus-within:border-red-500"
-                }
+            <form
+                onSubmit={handleFormSubmit}
+                className={`flex w-72 items-center rounded-xl border border-zinc-600 sm:border-2 sm:transition-all sm:duration-300 sm:focus-within:w-1/2 md:focus-within:w-1/2 lg:focus-within:w-1/3 
+                    ${isValidQuery
+                        ? "focus-within:border-zinc-200"
+                        : "focus-within:border-red-500"
+                    }
             `}>
                 <Input
                     id={inputId}
@@ -112,7 +121,7 @@ export default function Header({
                 />
 
                 <Button
-                    onClick={onSearchSubmit}
+                    type="submit"
                     disabled={isBlocked}
                     className="group h-9 md:h-10 rounded-none rounded-r-xl bg-transparent hover:bg-transparent cursor-pointer"
                 >
@@ -121,7 +130,7 @@ export default function Header({
                         className="transition-transform md:duration-200 group-hover:scale-125"
                     />
                 </Button>
-            </div>
+            </form>
         </header>
     );
 }

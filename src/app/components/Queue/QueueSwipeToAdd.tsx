@@ -1,26 +1,28 @@
-import QueueSongItem from "./QueueItem";
 import { Song } from "@/lib/songTypes";
+import QueueItem from "./QueueItem";
 
-export default function AddSongsToQueue({
-    song,
-    onClick,
-    onDragComplete,
-    isDragged,
-    isCurrentSong,
-}: {
+interface QueueSwipeToAddProps {
     song: Song;
     onClick: () => void;
     onDragComplete: () => void;
-    isDragged: boolean;
+    isQueued: boolean;
     isCurrentSong?: boolean;
-}) {
+}
+
+export default function QueueSwipeToAdd({
+    song,
+    onClick,
+    onDragComplete,
+    isQueued,
+    isCurrentSong,
+}: QueueSwipeToAddProps) {
     return (
-        <QueueSongItem
+        <QueueItem
             song={song}
             direction="left"
             onComplete={onDragComplete}
             onClick={onClick}
-            isHighlighted={isDragged}
+            isQueued={isQueued}
             isCurrentSong={isCurrentSong}
         />
     );

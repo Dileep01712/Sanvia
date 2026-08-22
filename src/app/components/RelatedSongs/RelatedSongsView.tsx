@@ -7,18 +7,18 @@ import SectionHeading from "./components/SectionHeading";
 import SongList from "./components/SongList";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
-interface AlbumAndRecommendationSongsProps {
+interface RelatedSongsProps {
     artistName?: string;
-    onSongSelect: (song: Song, source: "dragged" | "album" | "recommended") => void;
-    onSongDragged?: (song: Song) => void;
+    onSongSelect: (song: Song, source: "queued" | "album" | "recommended") => void;
+    onSongQueued?: (song: Song) => void;
 }
 
-export default function AlbumAndRecommendationSongs({
+export default function RelatedSongsView({
     artistName,
     onSongSelect,
-    onSongDragged,
-}: AlbumAndRecommendationSongsProps) {
-    const loading = usePlayerStore((state) => state.loading);
+    onSongQueued,
+}: RelatedSongsProps) {
+    const isLoading = usePlayerStore((state) => state.loading);
     const isExpanded = usePlayerStore((state) => state.isExpanded);
     const recommendedSongs = usePlayerStore((state) => state.recommendedSongs);
     const albumSongs = usePlayerStore((state) => state.albumSongs);
@@ -43,19 +43,19 @@ export default function AlbumAndRecommendationSongs({
         [onSongSelect]
     );
 
-    const handleSongDragged = useCallback(
+    const handleSongQueued = useCallback(
         (song: Song) => {
-            onSongDragged?.(song)
+            onSongQueued?.(song)
         },
-        [onSongDragged]
+        [onSongQueued]
     );
 
-    if (!combinedSongs.length && !loading) {
+    if (!combinedSongs.length && !isLoading) {
         return null;
     }
 
     return (
-        <div className="grid grid-flow-row justify-items-center h-126 sm:h-142 md:h-147 lg:h-146.25">
+        <div className="grid grid-flow-row justify-items-center">
             <div className={`flex justify-center w-80 sm:w-95 md:w-100 lg:w-117.5 ${isExpanded ? "my-4" : "mt-11"}`}>
                 <h1 className="select-none truncate text-center font-display font-bold uppercase drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
                     <SectionHeading artistName={artistName} />
@@ -64,7 +64,7 @@ export default function AlbumAndRecommendationSongs({
 
             <div className={`allow-scroll scrollbar-hide justify-items-center overflow-y-auto rounded-lg w-80 sm:w-95 md:w-100 lg:w-117.5
                 ${isExpanded
-                    ? "pb-6.5 sm:pb-2 md:pb-2 lg:pb-0 h-118.75 sm:h-131.25 md:h-133.75 lg:h-131.25"
+                    ? "pb-1.5 sm:pb-1.5 md:pb-1 lg:pb-1 h-110.5 sm:h-110.5 md:h-131 lg:h-131"
                     : "hidden"
                 }
             `}>
@@ -76,7 +76,7 @@ export default function AlbumAndRecommendationSongs({
                     <SongList
                         combinedSongs={combinedSongs}
                         onSongSelect={handleSongSelect}
-                        onSongDragged={handleSongDragged}
+                        onSongQueued={handleSongQueued}
                     />
                 </ul>
             </div>

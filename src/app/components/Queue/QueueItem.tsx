@@ -47,23 +47,23 @@ const EqualizerIcon = () => (
     </>
 );
 
-interface QueueSongItemProps {
+interface QueueItemProps {
     song: Song;
     direction: "left" | "right";
     onComplete: () => void;
     onClick: () => void;
-    isHighlighted?: boolean;
+    isQueued?: boolean;
     isCurrentSong?: boolean;
 }
 
-function QueueSongItem({
+function QueueItem({
     song,
     direction,
     onComplete,
     onClick,
-    isHighlighted = false,
+    isQueued = false,
     isCurrentSong = false,
-}: QueueSongItemProps) {
+}: QueueItemProps) {
     const x = useMotionValue(0);
     const hasDragged = useRef(false);
     const config = SWIPE_CONFIG[direction];
@@ -154,7 +154,6 @@ function QueueSongItem({
                 touchAction: "pan-y",
             }}
             dragTransition={{ power: 0.3, timeConstant: 150 }}
-            // whileHover={{ scale: 1.07 }}
             whileTap={{ scale: 0.98 }}
             transition={{ type: "tween", duration: 0.1 }}
             onDragStart={handleDragStart}
@@ -163,8 +162,8 @@ function QueueSongItem({
             onClick={handleClick}
             role="button"
             tabIndex={0}
-            className={`my-3 flex min-h-17.5 w-80 cursor-pointer items-center justify-between rounded-xl border p-2 transition-colors md:duration-200 sm:w-87.5 md:w-92.5 lg:w-105
-                ${isHighlighted
+            className={`my-3 flex min-h-17.5 w-80 cursor-pointer items-center justify-between rounded-xl border p-2 sm:w-87.5 md:w-92.5 lg:w-105 transition-all ease-in-out md:duration-100 md:hover:scale-105
+                ${isQueued
                     ? "border-white/10 bg-white/10 shadow-sm"
                     : "border-transparent hover:bg-white/5"
                 }
@@ -196,4 +195,4 @@ function QueueSongItem({
     );
 }
 
-export default memo(QueueSongItem);
+export default memo(QueueItem);

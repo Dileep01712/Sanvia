@@ -1,47 +1,47 @@
 import { memo, useMemo } from "react";
-import AddSongsToQueue from "../../Queue/QueueSwipeToAdd";
+import QueueSwipeToAdd from "../../Queue/QueueSwipeToAdd";
 import { Song } from "@/lib/songTypes";
-import LoadingSkeleton from "./SongListSkeleton";
+import SongListSkeleton from "./SongListSkeleton";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
 interface SongListProps {
     combinedSongs: { song: Song; source: "album" | "recommended" }[];
     onSongSelect: (song: Song, source: "album" | "recommended") => void;
-    onSongDragged?: (song: Song) => void;
+    onSongQueued?: (song: Song) => void;
 }
 
 function SongList({
     combinedSongs,
     onSongSelect,
-    onSongDragged,
+    onSongQueued,
 }: SongListProps) {
-    const loading = usePlayerStore((state) => state.loading);
+    const isLoading = usePlayerStore((state) => state.loading);
     const currentSong = usePlayerStore((state) => state.currentSong);
-    const draggedSongs = usePlayerStore((state) => state.draggedSongs);
+    const queuedSongs = usePlayerStore((state) => state.queuedSongs);
 
     const filteredSongs = useMemo(
         () => combinedSongs.filter((entry) => entry && entry.song),
         [combinedSongs]
     );
 
-    const draggedSongIds = useMemo(
-        () => new Set(draggedSongs.map((s) => s.id)),
-        [draggedSongs]
+    const queuedSongIds = useMemo(
+        () => new Set(queuedSongs.map((s) => s.id)),
+        [queuedSongs]
     );
 
-    if (loading) {
-        return <LoadingSkeleton />;
+    if (isLoading) {
+        return <SongListSkeleton />;
     }
 
     return (
         <>
             {filteredSongs.map(({ song, source }) => (
-                <AddSongsToQueue
+                <QueueSwipeToAdd
                     key={song.id}
                     song={song}
                     onClick={() => onSongSelect(song, source)}
-                    onDragComplete={() => onSongDragged?.(song)}
-                    isDragged={draggedSongIds.has(song.id)}
+                    onDragComplete={() => onSongQueued?.(song)}
+                    isQueued={queuedSongIds.has(song.id)}
                     isCurrentSong={currentSong?.id === song.id}
                 />
             ))}

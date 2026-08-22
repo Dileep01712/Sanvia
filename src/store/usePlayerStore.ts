@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { Song, Album, Artist } from '@/lib/songTypes';
 
-export type PlaybackSource = "dragged" | "album" | "artist" | "recommended" | "homeFeed";
+export type PlaybackSource = "queued" | "album" | "artist" | "recommended" | "homeFeed";
 export type ContentType = "album" | "recommended" | "artist" | null;
 export type ModalItem = Song | Album | Artist;
 
-const SOURCE_ORDER: PlaybackSource[] = ["dragged", "album", "artist", "recommended", "homeFeed"];
+const SOURCE_ORDER: PlaybackSource[] = ["queued", "album", "artist", "recommended", "homeFeed"];
 const DYNAMIC_SOURCES: PlaybackSource[] = ['album', 'artist', 'recommended'];
 
 const findValidIndex = (
@@ -43,7 +43,7 @@ interface PlayerStore {
     currentSong: Song | null;
     history: { song: Song; source: PlaybackSource; index: number }[];
 
-    draggedSongs: Song[];
+    queuedSongs: Song[];
     recommendedSongs: Song[];
     artistSongs: Song[];
     albumSongs: Song[];
@@ -67,7 +67,7 @@ interface PlayerStore {
     setHomeFeed: (feed: Song[]) => void;
     setAlbumSongs: (songs: Song[]) => void;
     setRecommendedSongs: (songs: Song[]) => void;
-    setDraggedSongs: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
+    setQueuedSongs: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
 
     play: (source: PlaybackSource, index: number) => void;
     next: () => void;
@@ -86,13 +86,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
     contextId: null,
 
     activeSource: "homeFeed",
-    indices: { dragged: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
+    indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
     isShuffle: false,
     shuffleDeck: [],
     currentSong: null,
     history: [],
 
-    draggedSongs: [],
+    queuedSongs: [],
     recommendedSongs: [],
     artistSongs: [],
     albumSongs: [],
@@ -122,7 +122,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
                 isModalOpen: true,
                 currentSong: null,
                 activeSource: "homeFeed",
-                indices: { dragged: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
+                indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
                 albumSongs: [],
                 recommendedSongs: [],
             });
@@ -163,13 +163,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         recommendedSongs: songs,
         indices: { ...state.indices, recommended: -1, artist: -1 }
     })),
-    setDraggedSongs: (updater) => set((state) => ({
-        draggedSongs: typeof updater === 'function' ? updater(state.draggedSongs) : updater
+    setQueuedSongs: (updater) => set((state) => ({
+        queuedSongs: typeof updater === 'function' ? updater(state.queuedSongs) : updater
     })),
 
     play: (source, index) => set((state) => {
         const sourceMap = {
-            dragged: state.draggedSongs,
+            queued: state.queuedSongs,
             album: state.albumSongs,
             artist: state.artistSongs,
             recommended: state.recommendedSongs,
@@ -211,13 +211,13 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         const state = get();
         let consumedId: string | null = null;
 
-        if (state.activeSource === 'dragged') {
+        if (state.activeSource === 'queued') {
             consumedId = state.currentSong?.id || null;
         }
 
         set((prev) => {
             const sourceMap = {
-                dragged: prev.draggedSongs,
+                queued: prev.queuedSongs,
                 album: prev.albumSongs,
                 artist: prev.artistSongs,
                 recommended: prev.recommendedSongs,
@@ -229,7 +229,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
             const skippedIds = new Set(
                 newHistory
-                    .filter((h) => h.source === 'dragged')
+                    .filter((h) => h.source === 'queued')
                     .map((h) => h.song.id)
             );
 
@@ -244,16 +244,16 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
                 ...(newDeck !== undefined ? { shuffleDeck: newDeck } : {})
             });
 
-            if (prev.draggedSongs.length > 0) {
-                if (prev.activeSource === 'dragged') {
-                    const nextIdx = findValidIndex(prev.draggedSongs, prev.indices['dragged'], 1);
-                    if (nextIdx >= 0 && nextIdx < prev.draggedSongs.length) {
-                        return commitNext('dragged', 0, prev.draggedSongs[nextIdx]);
+            if (prev.queuedSongs.length > 0) {
+                if (prev.activeSource === 'queued') {
+                    const nextIdx = findValidIndex(prev.queuedSongs, prev.indices['queued'], 1);
+                    if (nextIdx >= 0 && nextIdx < prev.queuedSongs.length) {
+                        return commitNext('queued', 0, prev.queuedSongs[nextIdx]);
                     }
                 } else {
-                    const validIdx = findValidIndex(prev.draggedSongs, -1, 1);
-                    if (validIdx >= 0 && validIdx < prev.draggedSongs.length) {
-                        return commitNext('dragged', validIdx, prev.draggedSongs[validIdx]);
+                    const validIdx = findValidIndex(prev.queuedSongs, -1, 1);
+                    if (validIdx >= 0 && validIdx < prev.queuedSongs.length) {
+                        return commitNext('queued', validIdx, prev.queuedSongs[validIdx]);
                     }
                 }
             }
@@ -324,7 +324,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         });
 
         if (consumedId) {
-            get().setDraggedSongs((prevSongs) => prevSongs.filter(s => s.id !== consumedId));
+            get().setQueuedSongs((prevSongs) => prevSongs.filter(s => s.id !== consumedId));
         }
     },
 
@@ -352,7 +352,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
         const newIsShuffle = !state.isShuffle;
         if (newIsShuffle) {
             const sourceMap = {
-                dragged: state.draggedSongs,
+                queued: state.queuedSongs,
                 album: state.albumSongs,
                 artist: state.artistSongs,
                 recommended: state.recommendedSongs,
@@ -374,7 +374,7 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 
     resetPlayback: () => set({
         activeSource: "homeFeed",
-        indices: { dragged: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
+        indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
         isShuffle: false,
         currentSong: null,
         history: [],

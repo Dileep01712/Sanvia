@@ -17,20 +17,27 @@ export default function Footer() {
                 </span>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 md:gap-4">
-                <div className="flex flex-col space-y-2 leading-relaxed">
+            <div className="grid gap-8 md:grid-cols-2 md:gap-12 md:divide-x md:divide-zinc-800">
+                <div className="flex flex-col gap-3 leading-relaxed md:pr-10">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                        About
+                    </span>
                     <p>
                         <strong className="font-semibold text-white">Sanvia</strong> —
                         <em className="text-gray-300"> &quot;A musical path inspired by someone special.&quot;</em>
                     </p>
                     <p>
-                        A hidden tribute to <span className="align-sub font-medium text-white">*******</span>. <br className="hidden md:block" />
-                        Softening the name to <strong className="font-medium text-white">San</strong>, and adding <strong className="font-medium text-white">via</strong> to express a journey of love, sound, and emotion.
+                        A hidden tribute to <span className="align-sub font-medium text-white">*******</span>.{" "}
+                        Softening the name to <strong className="font-medium text-white">San</strong>, and adding{" "}
+                        <strong className="font-medium text-white">via</strong> to express a journey of love, sound, and emotion.
                     </p>
                 </div>
 
-                <div className="flex flex-col space-y-3 md:items-end md:text-right">
-                    <p className="leading-relaxed">
+                <div className="flex flex-col gap-3 leading-relaxed md:pl-10">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
+                        Credits
+                    </span>
+                    <p>
                         Music data is powered by the{" "}
                         <a
                             href="https://backend.listenfree.in/docs"
@@ -41,8 +48,7 @@ export default function Footer() {
                             unofficial JioSaavn API
                         </a>
                         . Backend integration utilizes the{" "}
-                        <br />
-                        <code className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-xs text-blue-300">
+                        <code className="whitespace-nowrap rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 font-mono text-xs text-blue-300">
                             jiosaavn-python
                         </code>{" "}
                         library. Created strictly for educational purposes.
@@ -60,6 +66,25 @@ export default function Footer() {
                         </a>
                     </p>
                 </div>
+            </div>
+
+            <div
+                aria-hidden="true"
+                className="relative mt-6 overflow-hidden select-none"
+                style={{ height: "calc(clamp(3.5rem, 22vw, 30rem) * 0.82)" }}
+            >
+                <span
+                    className="absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap bg-linear-to-b from-zinc-700/70 via-zinc-800/40 to-transparent bg-clip-text font-black leading-none text-transparent"
+                    style={{
+                        fontSize: "clamp(3.5rem, 22vw, 16rem)",
+                        WebkitMaskImage:
+                            "linear-gradient(to bottom, black 0%, black 70%, transparent 100%)",
+                        maskImage:
+                            "linear-gradient(to bottom, black 0%, black 70%, transparent 100%)",
+                    }}
+                >
+                    SANVIA
+                </span>
             </div>
         </footer>
     );

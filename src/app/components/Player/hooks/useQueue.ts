@@ -2,16 +2,16 @@ import { Song } from "@/lib/songTypes";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
 export function useQueue() {
-    const draggedSongs = usePlayerStore((state) => state.draggedSongs);
-    const setDraggedSongs = usePlayerStore((state) => state.setDraggedSongs);
+    const queuedSongs = usePlayerStore((state) => state.queuedSongs);
+    const setQueuedSongs = usePlayerStore((state) => state.setQueuedSongs);
 
     const addToQueue = (song: Song) => {
-        setDraggedSongs(prev => prev.some(s => s.id === song.id) ? prev : [...prev, song]);
+        setQueuedSongs(prev => prev.some(s => s.id === song.id) ? prev : [...prev, song]);
     };
 
     const removeFromQueue = (songId: string) => {
-        setDraggedSongs(prev => prev.filter(s => s.id !== songId));
+        setQueuedSongs(prev => prev.filter(s => s.id !== songId));
     };
 
-    return { draggedSongs, setDraggedSongs, addToQueue, removeFromQueue };
+    return { queuedSongs, setQueuedSongs, addToQueue, removeFromQueue };
 }

@@ -4,6 +4,7 @@ export interface Artist {
     follower_count: string | number;
     image: string;
     url: string;
+    type?: string;
 }
 
 export interface Album {
@@ -13,11 +14,14 @@ export interface Album {
     image: string;
     downloadUrl: string;
     streamingUrl: string;
+    type?: string;
+    url?: string;
 }
 
 export interface Song {
     id: string;
     name: string;
+    type?: string;
     primaryArtists: string;
     image: string | { quality: string; url: string }[];
     downloadUrl: string | { quality: string; url: string }[];
@@ -48,7 +52,7 @@ const TRENDING_PLAYLIST_ID = process.env.NEXT_PUBLIC_TRENDING_PLAYLIST_ID;
 const PLAYLIST_BY_ID_API = process.env.NEXT_PUBLIC_PLAYLIST_BY_ID_API_URL;
 const ALBUM_SEARCH_API = process.env.NEXT_PUBLIC_ALBUM_SEARCH_API_URL;
 
-export async function fetchNewReleasesFromJioSaavn(retries = 3): Promise<Song[]> {
+export async function fetchNewReleases(retries = 3): Promise<Song[]> {
     const apiBase = process.env.SANVIA_BASE_API_URL || process.env.NEXT_PUBLIC_SANVIA_BASE_API_URL;
     if (!apiBase) {
         return [];
@@ -81,6 +85,7 @@ export async function fetchNewReleasesFromJioSaavn(retries = 3): Promise<Song[]>
                 primaryArtists: item.primaryArtists || "",
                 image: item.image || "",
                 downloadUrl: item.downloadUrl || "",
+                type: item.type || "song",
             })) as Song[];
 
         } catch (err) {
@@ -158,8 +163,8 @@ export async function fetchNowTrendingSongs(): Promise<Song[]> {
         });
 
     } catch (error) {
+        console.error(error);
         return [];
-        throw error;
     }
 }
 
@@ -270,7 +275,7 @@ export async function fetchRandomAlbums(): Promise<Album[]> {
     return shuffleArray(uniqueAlbums).slice(0, 12);
 }
 
-export async function fetchTopArtistsFromJioSaavn(): Promise<Artist[]> {
+export async function fetchTopArtists(): Promise<Artist[]> {
     if (!SANVIA_BASE_API) {
         throw new Error("Render API URL not set in environment variables.");
     }

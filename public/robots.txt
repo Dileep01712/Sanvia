@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://sanvia.onrender.com
+Host: https://sanvia-wimo.onrender.com/
 
 # Sitemaps
-Sitemap: https://sanvia.onrender.com/sitemap.xml
+Sitemap: https://sanvia-wimo.onrender.com//sitemap.xml

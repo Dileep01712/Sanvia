@@ -28,7 +28,6 @@
 
 - Fully featured bottom music player with a clean and minimal design.
 - Controls include: play/pause, seek, volume, repeat, shuffle, and download.
-- Double click on image for `Rotating disc animation` while a song is playing.
 - Smart content rendering in the second UI of player:
   - **If a song is selected**: Suggest similar or related songs based on genre, artist, or popularity.
   - **If an album is selected**: Display the full list of songs from that album.
@@ -47,7 +46,7 @@
 ### 🔍 Search Functionality with Pagination
 ![Search Page](./assets/images/image_5.webp)
 
-- Search songs by artist or song name.
+- Search songs by artist, song name or album name.
 - Pagination with **“Load More”** button to fetch and display additional results seamlessly.
 
 ---
@@ -57,7 +56,7 @@
 - **Framework**: Next.js 14
 - **Styling**: Tailwind CSS
 - **UI Components**: ShadCN UI
-- **API**: Unofficial [JioSaavn API](https://saavn.dev/docs)
+- **API**: Unofficial [JioSaavn API](https://backend.listenfree.in/docs)
 
 ---
 

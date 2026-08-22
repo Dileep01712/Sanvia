@@ -1,13 +1,15 @@
+interface SectionProps {
+    title: string;
+    children: React.ReactNode;
+}
+
 export default function Section({
     title,
     children,
-}: {
-    title: string;
-    children: React.ReactNode;
-}) {
+}: SectionProps) {
     return (
         <section className="w-full pb-14">
-            <h2 className="flex items-center pb-2.5 pl-2 select-none font-display text-2xl font-bold md:pb-5 md:text-4xl">
+            <h2 className="flex items-center pl-2 select-none font-display text-2xl font-bold md:pb-5 md:text-4xl">
                 {title}
             </h2>
 

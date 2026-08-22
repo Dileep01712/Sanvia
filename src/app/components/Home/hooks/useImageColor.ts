@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const FALLBACK_COLOR = "rgb(9, 9, 11)";
 
-const extractRichColor = (img: HTMLImageElement): string => {
+const extractDominantColor = (img: HTMLImageElement): string => {
     const SAMPLE_SIZE = 150;
     const canvas = document.createElement("canvas");
 
@@ -100,7 +100,7 @@ export const useImageColor = (imageUrl: string) => {
 
         const handleLoad = () => {
             if (!isActive) return;
-            setColor(extractRichColor(img));
+            setColor(extractDominantColor(img));
         };
 
         img.onload = handleLoad;

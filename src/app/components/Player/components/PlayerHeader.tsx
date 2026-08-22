@@ -4,12 +4,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAngleDown, faAngleUp, faX } from "@fortawesome/free-solid-svg-icons";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
-interface ModalHeaderProps {
+interface PlayerHeaderProps {
     onToggleExpand: () => void;
     onClose: () => void;
 }
 
-export default function ModalHeader({ onToggleExpand, onClose }: ModalHeaderProps) {
+export default function PlayerHeader({ onToggleExpand, onClose }: PlayerHeaderProps) {
     const [isLargeScreen, setIsLargeScreen] = useState(false);
     const isExpanded = usePlayerStore((state) => state.isExpanded);
 

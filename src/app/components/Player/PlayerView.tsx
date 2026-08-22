@@ -10,14 +10,15 @@ import { useDownload } from "./hooks/useDownload";
 import ProgressBar from "./components/ProgressBar";
 import VolumeControl from "./components/VolumeControl";
 import PlayerControls from "./components/PlayerControls";
-import ModalHeader from "./components/PlayerHeader";
-import QueuedSongs from "../Queue/QueueList";
-import AlbumAndRecommendationSongs from "../RelatedSongs/RelatedSongsView";
-import { useAlbumRecommendations } from "../RelatedSongs/hooks/useRelatedSongs";
+import PlayerHeader from "./components/PlayerHeader";
+import QueueList from "../Queue/QueueList";
+import RelatedSongsView from "../RelatedSongs/RelatedSongsView";
+import { useRelatedSongs } from "../RelatedSongs/hooks/useRelatedSongs";
 import { useImageColor } from "../Home/hooks/useImageColor";
 import OnboardingTooltipManager from "../Tooltips/OnboardingTooltipManager";
-import { BadgeCheck } from 'lucide-react';
 import { usePlayerStore, ModalItem } from "@/store/usePlayerStore";
+import { Button } from "@/components/ui/button";
+import { BadgeCheck } from 'lucide-react';
 import {
     formatTime,
     decodeHTMLEntities,
@@ -30,18 +31,16 @@ import {
     faPlay,
     faPause,
     faForwardStep,
-    faChevronLeft,
-    faChevronRight,
     faCircleNotch
 } from "@fortawesome/free-solid-svg-icons";
 
 const isArtist = (item: ModalItem | null): item is Artist => !!item && "follower_count" in item;
 
-export default function NowPlayingModal() {
+export default function PlayerView() {
     const loading = usePlayerStore((state) => state.loading);
     const isExpanded = usePlayerStore((state) => state.isExpanded);
     const selectedItem = usePlayerStore((state) => state.selectedItem);
-    const artistHelper = usePlayerStore((state) => state.artistHelper);
+    const useArtistFallback = usePlayerStore((state) => state.artistHelper);
     const isModalOpen = usePlayerStore((state) => state.isModalOpen);
     const topArtists = usePlayerStore((state) => state.topArtists);
     const openModal = usePlayerStore((state) => state.openModal);
@@ -56,15 +55,15 @@ export default function NowPlayingModal() {
     const fetchedAlbumSongs = usePlayerStore((state) => state.albumSongs);
     const fetchedRecSongs = usePlayerStore((state) => state.recommendedSongs);
 
-    const { draggedSongs, setDraggedSongs, addToQueue } = useQueue();
+    const { queuedSongs, setQueuedSongs, addToQueue } = useQueue();
     const { isDownloading, downloadProgress, triggerDownload } = useDownload();
 
-    const [activePage, setActivePage] = useState(0);
+    const [activeTab, setActiveTab] = useState<"player" | "queue" | "related">("player");
     const [isImageLoaded, setIsImageLoaded] = useState(false);
     const [imageError, setImageError] = useState(false);
-    const [forceSongView, setForceSongView] = useState(false);
+    const [isSongViewForced, setIsSongViewForced] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
-    const isArtistView = isArtist(selectedItem) && !forceSongView;
+    const isArtistView = isArtist(selectedItem) && !isSongViewForced;
 
     const isProcessingNext = useRef(false);
     const internalAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -82,19 +81,27 @@ export default function NowPlayingModal() {
         };
     }, [rawCurrentSong, isArtistView]);
 
-    const songForRecommendations = isArtistView ? null : currentSong;
-    const artistNameForRecommendations = isArtistView
-        ? (selectedItem as Artist).name
-        : (artistHelper ? (currentSong?.primaryArtists || selectedItem?.name) : "");
+    const seedSong = isArtistView ? null : currentSong;
+    const seedArtistName = useMemo(() => {
+        if (isArtistView) {
+            return (selectedItem as Artist).name;
+        }
 
-    const { reset: resetRecommendations } = useAlbumRecommendations(songForRecommendations, artistNameForRecommendations);
+        if (useArtistFallback) {
+            return currentSong?.primaryArtists || selectedItem?.name || "";
+        }
+
+        return "";
+    }, [isArtistView, selectedItem, useArtistFallback, currentSong]);
+
+    const { reset: resetRecommendations } = useRelatedSongs(seedSong, seedArtistName);
 
     const audio = useAudioPlayer(currentSong, true, next);
     const {
         audioRef,
         streamingUrl,
-        overriddenTitle,
-        overriddenArtist,
+        resolvedTitle,
+        resolvedArtist,
         isPlaying,
         duration,
         currentTime,
@@ -113,10 +120,10 @@ export default function NowPlayingModal() {
     useMediaSession(currentSong);
 
     const currentArtist = isArtistView ? (selectedItem as Artist) : null;
-    const _imageCandidate = isArtistView ? getBestQualityImage(currentArtist?.image) : currentSong?.image || "";
-    const image = Array.isArray(_imageCandidate) ? (_imageCandidate[0]?.url || "") : (_imageCandidate || "");
-    const title = isArtistView ? (currentArtist?.name || "") : (overriddenTitle || currentSong?.name || "");
-    const subtitle = isArtistView ? null : (overriddenArtist || currentSong?.primaryArtists || "");
+    const fallbackImage = isArtistView ? getBestQualityImage(currentArtist?.image) : currentSong?.image || "";
+    const image = Array.isArray(fallbackImage) ? (fallbackImage[0]?.url || "") : (fallbackImage || "");
+    const title = isArtistView ? (currentArtist?.name || "") : (resolvedTitle || currentSong?.name || "");
+    const subtitle = isArtistView ? null : (resolvedArtist || currentSong?.primaryArtists || "");
     const followerCount = currentArtist?.follower_count ? Number(currentArtist.follower_count) : null;
 
     const dynamicBgColor = useImageColor(image);
@@ -152,7 +159,7 @@ export default function NowPlayingModal() {
     }, [currentSong, activeSource, fetchedAlbumSongs.length, play, contextId]);
 
     useEffect(() => {
-        setForceSongView(false);
+        setIsSongViewForced(false);
     }, [selectedItem]);
 
     useEffect(() => {
@@ -173,7 +180,7 @@ export default function NowPlayingModal() {
         return () => clearTimeout(retryTimer);
     }, [imageError, image]);
 
-    const handleAudioRef = useCallback((el: HTMLAudioElement | null) => {
+    const assignAudioRef = useCallback((el: HTMLAudioElement | null) => {
         internalAudioRef.current = el;
         audioRef(el);
     }, [audioRef]);
@@ -190,7 +197,7 @@ export default function NowPlayingModal() {
 
         resetPlayback();
         resetRecommendations();
-        setDraggedSongs([]);
+        setQueuedSongs([]);
         closeModal();
         setIsExpanded(false);
 
@@ -203,7 +210,7 @@ export default function NowPlayingModal() {
             navigator.mediaSession.setActionHandler("play", null);
             navigator.mediaSession.setActionHandler("pause", null);
         }
-    }, [closeModal, setIsExpanded, resetPlayback, resetRecommendations, setDraggedSongs]);
+    }, [closeModal, setIsExpanded, resetPlayback, resetRecommendations, setQueuedSongs]);
 
     useEffect(() => {
         if (isModalOpen && isExpanded) {
@@ -231,16 +238,16 @@ export default function NowPlayingModal() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [setIsExpanded, handleClose]);
 
-    const handleQueuedSongSelect = useCallback((song: Song) => {
-        const idx = draggedSongs.findIndex(s => s.id === song.id);
+    const handleQueueSongSelect = useCallback((song: Song) => {
+        const idx = queuedSongs.findIndex(s => s.id === song.id);
         if (idx !== -1) {
-            play("dragged", idx);
-            setForceSongView(true);
+            play("queued", idx);
+            setIsSongViewForced(true);
         }
-    }, [draggedSongs, play]);
+    }, [queuedSongs, play]);
 
-    const handleAlbumRecommendationSelect = useCallback((song: Song, src: "album" | "recommended" | "dragged") => {
-        if (src === "dragged") {
+    const handleRelatedSongSelect = useCallback((song: Song, src: "album" | "recommended" | "queued") => {
+        if (src === "queued") {
             addToQueue(song);
             return;
         }
@@ -254,15 +261,15 @@ export default function NowPlayingModal() {
 
         if (idx !== -1) {
             play(src, idx);
-            setForceSongView(true);
+            setIsSongViewForced(true);
         }
     }, [fetchedAlbumSongs, fetchedRecSongs, addToQueue, play]);
 
     useEffect(() => {
-        if (draggedSongs.length === 0 && activePage === 1) {
-            setActivePage(0);
+        if (queuedSongs.length === 0 && activeTab === "queue") {
+            setActiveTab("player");
         }
-    }, [draggedSongs.length, activePage]);
+    }, [queuedSongs.length, activeTab]);
 
     const handleNext = useCallback(() => {
         if (loading || isProcessingNext.current) {
@@ -279,13 +286,13 @@ export default function NowPlayingModal() {
 
     const artistIndex = topArtists.findIndex(a => a.id === currentArtist?.id);
 
-    const previousArtist = () => {
+    const handlePreviousArtist = () => {
         if (artistIndex > 0) {
             openModal(topArtists[artistIndex - 1], []);
         }
     };
 
-    const nextArtist = () => {
+    const handleNextArtist = () => {
         if (artistIndex < topArtists.length - 1) {
             openModal(topArtists[artistIndex + 1], []);
         }
@@ -305,7 +312,7 @@ export default function NowPlayingModal() {
         <>
             {/* Hidden audio element */}
             <audio
-                ref={handleAudioRef}
+                ref={assignAudioRef}
                 src={currentSong ? streamingUrl : ""}
                 autoPlay
                 hidden
@@ -343,7 +350,7 @@ export default function NowPlayingModal() {
 
                     {/* -------- HEADER SECTION -------- */}
                     <div className={`z-10 ${isExpanded ? "flex shrink-0 h-10 items-center" : ""}`}>
-                        <ModalHeader onToggleExpand={() => setIsExpanded(!isExpanded)} onClose={handleClose} />
+                        <PlayerHeader onToggleExpand={() => setIsExpanded(!isExpanded)} onClose={handleClose} />
                     </div>
 
                     {/* -------- MIDDLE SECTION -------- */}
@@ -361,7 +368,7 @@ export default function NowPlayingModal() {
 
                         {/* Active Page Content */}
                         <div className={`flex-1 flex flex-col ${isExpanded ? "overflow-y-auto scrollbar-hide [@media(max-height:600px)]:pb-6" : ""}`}>
-                            {activePage === 0 && (
+                            {activeTab === "player" && (
                                 <div className={`flex flex-1 flex-col 
                                     ${isExpanded
                                         ? "items-center border-t-2 border-t-zinc-700/10"
@@ -375,7 +382,7 @@ export default function NowPlayingModal() {
                                             : "w-full justify-between gap-2 md:gap-4 my-auto pr-10 md:pr-12"
                                         }
                                     `}>
-                                        <div className={`select-none relative my-2 shrink-0 overflow-hidden
+                                        <div className={`select-none relative my-1.5 shrink-0 overflow-hidden
                                                 ${isExpanded ? "w-80 h-80 md:w-100 md:h-100" : "w-16.25 h-16.25"}
                                                 ${isArtistView ? "rounded-full" : (isExpanded ? "rounded-3xl" : "rounded-md")}
                                         `}>
@@ -395,6 +402,8 @@ export default function NowPlayingModal() {
                                                     height={isExpanded ? 400 : 65}
                                                     priority
                                                     fetchPriority="high"
+                                                    unoptimized={true}
+                                                    quality={100}
                                                     onLoad={() => {
                                                         setIsImageLoaded(true);
                                                         setImageError(false);
@@ -496,6 +505,39 @@ export default function NowPlayingModal() {
                                                 </div>
                                             </>
                                         )}
+
+                                        {/* Artist controls (only when collapsed) */}
+                                        {!isExpanded && isArtistView && (
+                                            <div className="flex items-center shrink-0">
+                                                <div className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-md border border-white/10 p-1 rounded-full shadow-sm">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        disabled={artistIndex <= 0}
+                                                        onClick={handlePreviousArtist}
+                                                        className="group h-7 px-3.5 rounded-full bg-transparent hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 active:scale-95 cursor-pointer"
+                                                    >
+                                                        <span className="font-display text-[9px] uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
+                                                            Prev
+                                                        </span>
+                                                    </Button>
+
+                                                    <div className="w-px h-4 bg-white/20 rounded-full" />
+
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        disabled={artistIndex >= topArtists.length - 1}
+                                                        onClick={handleNextArtist}
+                                                        className="group h-7 px-3.5 rounded-full bg-transparent hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 active:scale-95 cursor-pointer"
+                                                    >
+                                                        <span className="font-display text-[9px] uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
+                                                            Next
+                                                        </span>
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Full controls (only when expanded) */}
@@ -542,54 +584,54 @@ export default function NowPlayingModal() {
 
                                     {/* Artist Navigation - Enclosed Control Dock */}
                                     {isArtistView && isExpanded && (
-                                        <div className="flex justify-center items-center my-1">
-                                            <div className="inline-flex w-fit mx-auto items-center gap-8 bg-white/5 backdrop-blur-md border border-white/10 px-6 py-2.5 rounded-full shadow-sm">
-                                                <FontAwesomeIcon
-                                                    icon={faChevronLeft}
-                                                    onClick={artistIndex > 0 ? previousArtist : undefined}
-                                                    title="Previous"
-                                                    className={`h-5 w-5 transition-all duration-200 
-                                                        ${artistIndex <= 0
-                                                            ? "text-white/20 cursor-not-allowed"
-                                                            : "text-white/70 hover:text-white cursor-pointer hover:-translate-x-0.5 active:scale-95"
-                                                        }
-                                                    `}
-                                                />
+                                        <div className="flex justify-center items-center mt-2.5 select-none">
+                                            <div className="inline-flex w-fit mx-auto gap-4 items-center bg-white/5 backdrop-blur-md border border-white/10 p-1.25 rounded-full shadow-sm">
 
-                                                {/* Subtle physical divider line */}
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    disabled={artistIndex <= 0}
+                                                    onClick={handlePreviousArtist}
+                                                    className="group h-7 px-4 rounded-full bg-transparent hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 active:scale-95 cursor-pointer"
+                                                >
+                                                    <span className="font-display text-[10px] uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
+                                                        Prev
+                                                    </span>
+                                                </Button>
+
                                                 <div className="w-px h-4 bg-white/20 rounded-full" />
 
-                                                <FontAwesomeIcon
-                                                    icon={faChevronRight}
-                                                    onClick={artistIndex < topArtists.length - 1 ? nextArtist : undefined}
-                                                    title="Next"
-                                                    className={`h-5 w-5 transition-all duration-200 
-                                                        ${artistIndex >= topArtists.length - 1
-                                                            ? "text-white/20 cursor-not-allowed"
-                                                            : "text-white/70 hover:text-white cursor-pointer hover:translate-x-0.5 active:scale-95"
-                                                        }
-                                                    `}
-                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    disabled={artistIndex >= topArtists.length - 1}
+                                                    onClick={handleNextArtist}
+                                                    className="group h-7 px-4 rounded-full bg-transparent hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 active:scale-95 cursor-pointer"
+                                                >
+                                                    <span className="font-display text-[10px] uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
+                                                        Next
+                                                    </span>
+                                                </Button>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {activePage === 1 && (
-                                <QueuedSongs
-                                    draggedSongs={draggedSongs}
-                                    onSongSelect={handleQueuedSongSelect}
-                                    setDraggedSongs={setDraggedSongs}
+                            {activeTab === "queue" && (
+                                <QueueList
+                                    queuedSongs={queuedSongs}
+                                    onSongSelect={handleQueueSongSelect}
+                                    setQueuedSongs={setQueuedSongs}
 
                                 />
                             )}
 
-                            {activePage === 2 && (
-                                <AlbumAndRecommendationSongs
-                                    artistName={artistNameForRecommendations}
-                                    onSongSelect={handleAlbumRecommendationSelect}
-                                    onSongDragged={addToQueue}
+                            {activeTab === "related" && (
+                                <RelatedSongsView
+                                    artistName={seedArtistName}
+                                    onSongSelect={handleRelatedSongSelect}
+                                    onSongQueued={addToQueue}
                                 />
                             )}
                         </div>
@@ -597,22 +639,24 @@ export default function NowPlayingModal() {
 
                     {/* -------- BOTTOM SECTION (page dots) -------- */}
                     {isExpanded && (
-                        <div className="shrink-0 h-4 flex items-center justify-center gap-1 z-10">
-                            {[0, 1, 2].filter(i => i !== 1 || draggedSongs.length > 0).map(i => (
-                                <button
-                                    key={i}
-                                    onClick={() => setActivePage(i)}
-                                    className="w-6 h-6 flex items-center justify-center group focus:outline-none cursor-pointer"
-                                    aria-label={`Go to page ${i + 1}`}
-                                >
-                                    <div className={`h-2.5 rounded-full  
-                                        ${activePage === i
-                                            ? "bg-white w-6 shadow-[0_0_8px_rgba(255,255,255,0.6)]"
-                                            : "bg-white/30 w-2.5 group-hover:bg-white/60"
-                                        }
-                                    `} />
-                                </button>
-                            ))}
+                        <div className="shrink-0 h-5.25 flex items-center justify-center gap-1 z-10">
+                            {(["player", "queue", "related"] as const)
+                                .filter(tab => tab !== "queue" || queuedSongs.length > 0)
+                                .map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setActiveTab(tab)}
+                                        className="w-6 h-5 flex items-center justify-center group focus:outline-none cursor-pointer"
+                                        aria-label={`Switch to ${tab} view`}
+                                    >
+                                        <div className={`h-2.5 rounded-full  
+                                            ${activeTab === tab
+                                                ? "bg-white w-6 shadow-[0_0_8px_rgba(255,255,255,0.6)]"
+                                                : "bg-white/30 w-2.5 group-hover:bg-white/60"
+                                            }
+                                        `} />
+                                    </button>
+                                ))}
 
                             <OnboardingTooltipManager id="toggle-sections-tip" />
                         </div>

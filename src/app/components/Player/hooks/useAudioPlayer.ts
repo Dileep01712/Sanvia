@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Song } from "@/lib/songTypes";
-import { getStreamingUrlFromSaavn } from "@/lib/getStreamingUrl";
+import { getStreamingUrl } from "@/lib/getStreamingUrl";
 import { getBestQualityDownload } from "@/lib/helpers";
 
 const VOLUME_STORAGE_KEY = "audioPlayerVolume";
@@ -9,7 +9,7 @@ const MUTE_STORAGE_KEY = "audioPlayerMuted";
 export function useAudioPlayer(
     currentSong: Song | null,
     isImageLoaded: boolean,
-    onSongEnd?: () => void
+    onSongEnd?: () => void,
 ) {
     const [volume, setVolume] = useState(() => {
         if (typeof window !== "undefined") {
@@ -34,8 +34,8 @@ export function useAudioPlayer(
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
     const [isRepeat, setIsRepeat] = useState(false);
-    const [overriddenTitle, setOverriddenTitle] = useState<string | null>(null);
-    const [overriddenArtist, setOverriddenArtist] = useState<string | null>(null);
+    const [resolvedTitle, setOverriddenTitle] = useState<string | null>(null);
+    const [resolvedArtist, setOverriddenArtist] = useState<string | null>(null);
     const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [bufferedPercent, setBufferedPercent] = useState(0);
@@ -129,7 +129,7 @@ export function useAudioPlayer(
             setIsLoading(true);
 
             try {
-                const { url, name, primaryArtists } = await getStreamingUrlFromSaavn(
+                const { url, name, primaryArtists } = await getStreamingUrl(
                     currentSong.id,
                     currentSong.name,
                     downloadUrl
@@ -363,8 +363,8 @@ export function useAudioPlayer(
     return {
         audioRef: setAudioRef,
         streamingUrl,
-        overriddenTitle,
-        overriddenArtist,
+        resolvedTitle,
+        resolvedArtist,
         isPlaying,
         duration,
         currentTime,

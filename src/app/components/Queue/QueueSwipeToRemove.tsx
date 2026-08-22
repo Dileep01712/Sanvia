@@ -1,23 +1,25 @@
 import { Song } from "@/lib/songTypes";
-import QueueSongItem from "./QueueItem";
+import QueueItem from "./QueueItem";
 
-export default function RemoveSongsFromQueue({
-    song,
-    isCurrentSong,
-    onClick,
-    setDraggedSongs,
-}: {
+interface QueueSwipeToRemoveProps {
     song: Song;
     isCurrentSong?: boolean;
     onClick: () => void;
-    setDraggedSongs: React.Dispatch<React.SetStateAction<Song[]>>;
-}) {
+    setQueuedSongs: React.Dispatch<React.SetStateAction<Song[]>>;
+}
+
+export default function QueueSwipeToRemove({
+    song,
+    isCurrentSong,
+    onClick,
+    setQueuedSongs,
+}: QueueSwipeToRemoveProps) {
     const handleComplete = () => {
-        setDraggedSongs((prev) => prev.filter((s) => s.id !== song.id));
+        setQueuedSongs((prev) => prev.filter((s) => s.id !== song.id));
     };
 
     return (
-        <QueueSongItem
+        <QueueItem
             song={song}
             isCurrentSong={isCurrentSong}
             direction="right"
