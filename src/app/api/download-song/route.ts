@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { decodeHTMLEntities } from "@/lib/helpers";
 
 export async function POST(request: NextRequest) {
     try {
@@ -33,30 +32,40 @@ export async function POST(request: NextRequest) {
 
         const contentLength = response.headers.get("content-length");
 
-        const safeTitle = songTitle
-            .replace(/[/\\?%*:|"<>]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 150);
-
-        const safeArtist = (primaryArtists || 'Unknown Artist')
-            .replace(/[/\\?%*:|"<>]/g, ' ')
+        const cleanTitle = songTitle
+            .replace(/&quot;/g, '”')
+            .replace(/&#39;/g, "'")
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
             .trim();
 
-        const fileName = `${decodeHTMLEntities(safeTitle)} - ${decodeHTMLEntities(safeArtist)} (320K) - Sanvia.mp3`;
+        const cleanArtist = (primaryArtists || 'Unknown Artist')
+            .replace(/&quot;/g, '”')
+            .replace(/&#39;/g, "'")
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
+
+        const fileName = `${cleanTitle} - ${cleanArtist} (320K) - Sanvia.mp3`;
 
         const headers = new Headers();
         headers.set('Content-Type', response.headers.get('content-type') || 'audio/mpeg');
         if (contentLength) {
             headers.set('Content-Length', contentLength);
         }
-        headers.set('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+
+        const encodedFileName = encodeURIComponent(fileName);
+        headers.set(
+            'Content-Disposition',
+            `attachment; filename="Sanvia_Audio.mp3"; filename*=UTF-8''${encodedFileName}`
+        );
 
         return new NextResponse(response.body, {
             status: 200,
             headers,
-        }
-        )
+        });
     } catch (error) {
         console.error("Download error: ", error);
         return NextResponse.json(
