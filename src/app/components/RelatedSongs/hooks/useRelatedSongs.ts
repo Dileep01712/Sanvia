@@ -124,7 +124,9 @@ export const useRelatedSongs = (
             const isAlbumContext = !!albumUrl;
             const isSongContext = !!currentSong?.id;
             const isForeground = activeSource === 'homeFeed';
-            const isBackgroundFetch = isLastInSource && (activeSource === 'album' || activeSource === 'recommended' || activeSource === 'artist');
+            const isBackgroundFetch =
+                isLastInSource &&
+                (activeSource === 'album' || activeSource === 'recommended' || activeSource === 'artist');
 
             let intent: 'album' | 'recommended' | 'artist' | null = null;
 
@@ -186,7 +188,9 @@ export const useRelatedSongs = (
                     prepareFetch();
                     lastFetched.current.album = albumUrl;
 
-                    const res = await fetch(`${env.ALBUM_BY_LINK_API}${encodeURIComponent(albumUrl)}`, { signal: controller.signal });
+                    const res = await fetch(`${env.ALBUM_BY_LINK_API}${encodeURIComponent(albumUrl)}`, {
+                        signal: controller.signal
+                    });
                     if (isStale()) return;
                     const data = await res.json();
                     if (isStale()) return;
@@ -218,7 +222,9 @@ export const useRelatedSongs = (
                     prepareFetch();
                     lastFetched.current.recs = currentSong!.id;
 
-                    const res = await fetch(`${env.SONG_BY_ID_API}${currentSong?.id}`, { signal: controller.signal });
+                    const res = await fetch(`${env.SONG_BY_ID_API}${currentSong?.id}`, {
+                        signal: controller.signal
+                    });
                     if (isStale()) return;
                     const data = await res.json();
                     if (isStale()) return;
@@ -228,7 +234,13 @@ export const useRelatedSongs = (
                         const sessionHistory = usePlayerStore.getState().history.map(h => h.song);
                         const fullContextArray = [...sessionHistory, data.data[0]];
 
-                        recommended = await generateRecommendations(fullContextArray, env.SONG_SEARCH_PRIMARY_API, env.SONG_SEARCH_FALLBACK_API, controller.signal);
+                        recommended = await generateRecommendations(
+                            fullContextArray,
+                            env.SONG_SEARCH_PRIMARY_API,
+                            env.SONG_SEARCH_FALLBACK_API,
+                            controller.signal,
+                            env.ALBUM_BY_LINK_API
+                        );
                     }
 
                     if (!isStale()) {
@@ -279,13 +291,17 @@ export const useRelatedSongs = (
                     const songGroups = new Map<string, Song>();
 
                     const fetchPage = async (artist: string, page: number) => {
-                        let res = await fetch(`${env.SONG_SEARCH_PRIMARY_API}${encodeURIComponent(artist)}&limit=50&page=${page}`, { signal: controller.signal });
+                        let res = await fetch(`${env.SONG_SEARCH_PRIMARY_API}${encodeURIComponent(artist)}&limit=50&page=${page}`, {
+                            signal: controller.signal
+                        });
                         if (isStale()) return null;
                         let data = await res.json();
                         if (isStale()) return null;
 
                         if (!res.ok || !data.success || !Array.isArray(data.data?.results)) {
-                            res = await fetch(`${env.SONG_SEARCH_FALLBACK_API}${encodeURIComponent(artist)}&limit=50&page=${page}`, { signal: controller.signal });
+                            res = await fetch(`${env.SONG_SEARCH_FALLBACK_API}${encodeURIComponent(artist)}&limit=50&page=${page}`, {
+                                signal: controller.signal
+                            });
                             if (isStale()) return null;
                             data = await res.json();
                             if (isStale()) return null;

@@ -29,8 +29,8 @@ export default function QueueList({
 
     return (
         <div className="grid grid-flow-row justify-items-center">
-            <div className={`flex w-80 justify-center sm:w-95 md:w-100 lg:w-117.5 ${isExpanded ? "my-4" : "mt-11"}`}>
-                <h1 className="select-none truncate text-center font-display font-bold uppercase drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+            <div className={`flex justify-center [@media(min-width:360px)_and_(max-width:420px)]:w-[clamp(0rem,73vw,24rem)] [@media(max-width:640px)]:w-80 sm:w-87 md:w-90 lg:w-105 ${isExpanded ? "my-4 w-80" : "mt-11 w-65"}`}>
+                <h1 className="select-none truncate text-center font-display font-bold uppercase drop-shadow-[0_1px_10px_rgba(0,0,0,0.9)]">
                     Up Next
                 </h1>
             </div>

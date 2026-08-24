@@ -4,6 +4,14 @@ export const extractArtistsFromSong = (song: Song): string[] => {
     return song.artists?.primary?.map(artist => artist.name) ?? [];
 };
 
+export const extractExtendedArtistsFromSong = (song: Song): string[] => {
+    const primary = song.artists?.primary?.map(a => a.name) ?? [];
+    const others = song.artists?.all
+        ?.filter(a => (a as { role?: string }).role === "music" || (a as { role?: string }).role === "singer")
+        .map(a => a.name) ?? [];
+    return Array.from(new Set([...primary, ...others]));
+};
+
 export function decodeHTMLEntities(text: string): string {
     const txt = document.createElement("textarea");
     txt.innerHTML = text;

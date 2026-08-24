@@ -17,7 +17,7 @@ export default function Footer() {
                 </span>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 md:gap-12 md:divide-x md:divide-zinc-800">
+            <div className="grid gap-8 md:grid-cols-2 md:gap-0 md:divide-x md:divide-zinc-800">
                 <div className="flex flex-col gap-3 leading-relaxed md:pr-10">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
                         About

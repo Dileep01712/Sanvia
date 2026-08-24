@@ -5,6 +5,7 @@ export interface Artist {
     image: string;
     url: string;
     type?: string;
+    role?: string;
 }
 
 export interface Album {
