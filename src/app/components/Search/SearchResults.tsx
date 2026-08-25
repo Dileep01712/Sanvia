@@ -4,7 +4,6 @@ import SongCard from "@/app/components/Home/ui/SongCard";
 import { Button } from "@/components/ui/button";
 import { Artist, Song } from "@/lib/songTypes";
 import { decodeHTMLEntities } from "@/lib/helpers";
-import { usePlayerStore } from "@/store/usePlayerStore";
 
 const PAGE_SIZE = 24;
 const MAX_VISIBLE_SKELETONS = PAGE_SIZE;
@@ -37,8 +36,7 @@ export default function SearchResults({
     query,
     onSongSelect
 }: SearchResultsProps) {
-    const isLoading = usePlayerStore((state) => state.loading);
-    const setLoading = usePlayerStore((state) => state.setLoading);
+    const [isSearchLoading, setIsSearchLoading] = useState(false);
     const sanitizedQuery = query.trim();
     const [results, setResults] = useState<Song[]>([]);
     const [hasMore, setHasMore] = useState(true);
@@ -89,9 +87,9 @@ export default function SearchResults({
     );
 
     const fetchNextPage = useCallback(async (isInitialLoad = false, currentQuery = sanitizedQuery) => {
-        if (!currentQuery || (!hasMore && !isInitialLoad) || (isLoading && !isInitialLoad)) return;
+        if (!currentQuery || (!hasMore && !isInitialLoad) || (isSearchLoading && !isInitialLoad)) return;
 
-        setLoading(true);
+        setIsSearchLoading(true);
         setError(null);
 
         const controller = new AbortController();
@@ -145,16 +143,16 @@ export default function SearchResults({
                 setError("Failed to load songs. Please try again.");
             }
         } finally {
-            if (!controller.signal.aborted) setLoading(false);
+            if (!controller.signal.aborted) setIsSearchLoading(false);
         }
-    }, [sanitizedQuery, hasMore, isLoading, setLoading, fetchPage]);
+    }, [sanitizedQuery, hasMore, isSearchLoading, setIsSearchLoading, fetchPage]);
 
     useEffect(() => {
         if (!sanitizedQuery) {
             setResults([]);
             setHasMore(true);
             setError(null);
-            setLoading(false);
+            setIsSearchLoading(false);
             return;
         }
 
@@ -185,7 +183,7 @@ export default function SearchResults({
             return <span className="text-red-400">{error}</span>;
         }
 
-        if (isLoading && results.length === 0) {
+        if (isSearchLoading && results.length === 0) {
             return (
                 <span className="animate-in fade-in duration-300">
                     Searching for &quot;{sanitizedQuery}&quot;
@@ -198,12 +196,12 @@ export default function SearchResults({
             return `Top results for "${sanitizedQuery}"`;
         }
 
-        if (!isLoading && results.length === 0) {
+        if (!isSearchLoading && results.length === 0) {
             return `We couldn't find anything for "${sanitizedQuery}"`;
         }
 
         return "";
-    }, [sanitizedQuery, isLoading, results.length, error]);
+    }, [sanitizedQuery, isSearchLoading, results.length, error]);
 
     if (!sanitizedQuery) {
         return (
@@ -221,7 +219,7 @@ export default function SearchResults({
         );
     }
 
-    const showInitialLoading = isLoading && sanitizedQuery && results.length === 0;
+    const showInitialLoading = isSearchLoading && sanitizedQuery && results.length === 0;
 
     return (
         <div className="w-full md:px-6">
@@ -270,10 +268,10 @@ export default function SearchResults({
                 <Button
                     variant={"default"}
                     onClick={handleLoadMore}
-                    disabled={!sanitizedQuery || !hasMore || isLoading}
+                    disabled={!sanitizedQuery || !hasMore || isSearchLoading}
                     className="mx-auto my-20 flex h-10 w-fit cursor-pointer select-none items-center justify-center bg-zinc-800 px-6 font-sans font-normal text-white transition-colors hover:bg-zinc-700"
                 >
-                    {isLoading && sanitizedQuery ? "Loading..." : "Load More"}
+                    {isSearchLoading && sanitizedQuery ? "Loading..." : "Load More"}
                 </Button>
             )}
         </div>
