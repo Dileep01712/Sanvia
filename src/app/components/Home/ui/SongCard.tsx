@@ -21,7 +21,7 @@ export default function SongCard({
             onClick={onClick}
             className="group w-full min-w-0 cursor-pointer rounded-xl transition-all md:duration-300 ease-in-out hover:scale-105 hover:shadow-lg hover:shadow-zinc-900"
         >
-            <div className="relative w-full aspect-square rounded-xl overflow-hidden">
+            <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-1">
                 <Image
                     src={getBestQualityImage(song.image)}
                     alt={song.name}

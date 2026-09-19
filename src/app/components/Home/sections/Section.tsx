@@ -8,7 +8,7 @@ export default function Section({
     children,
 }: SectionProps) {
     return (
-        <section className="w-full pb-14">
+        <section className="w-full pb-20">
             <h2 className="flex items-center pl-2 select-none font-display text-2xl font-bold md:pb-5 md:text-4xl">
                 {title}
             </h2>

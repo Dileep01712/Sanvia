@@ -6,9 +6,9 @@ export default function SkeletonCard({ isArtist }: SkeletonCardProps) {
     return (
         <div className="w-full min-w-0 rounded-xl bg-zinc-900 pb-1">
 
-            <div className={`w-full aspect-square animate-pulse bg-zinc-700 ${isArtist ? "rounded-full mb-3" : "rounded-xl mb-1"}`} />
+            <div className={`w-full aspect-square animate-pulse bg-zinc-700 ${isArtist ? "rounded-full mb-3" : "rounded-xl mb-0"}`} />
 
-            <div className="mx-auto mb-1 mt-2 h-5 w-3/4 animate-pulse rounded bg-zinc-700" />
+            <div className="mx-auto mb-1 mt-1.5 h-5 w-3/4 animate-pulse rounded bg-zinc-700" />
             <div className="mx-auto h-5 w-3/4 animate-pulse rounded bg-zinc-700" />
         </div>
     );

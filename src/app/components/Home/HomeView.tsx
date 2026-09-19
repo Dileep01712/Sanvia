@@ -13,6 +13,7 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 interface HomeViewProps {
     newReleases: Song[];
     nowTrendingSongs: Song[];
+    viralSongs: Song[];
     albums: Album[];
     topArtists: Artist[];
 }
@@ -22,6 +23,7 @@ type ModalItem = Song | Album | Artist;
 export default function HomeView({
     newReleases,
     nowTrendingSongs,
+    viralSongs,
     albums,
     topArtists,
 }: HomeViewProps) {
@@ -41,7 +43,7 @@ export default function HomeView({
 
     const hasHydrated = useRef(false);
     if (!hasHydrated.current) {
-        setPageData({ newReleases, nowTrendingSongs, albums, topArtists });
+        setPageData({ newReleases, nowTrendingSongs, viralSongs, albums, topArtists });
         hasHydrated.current = true;
     }
 

@@ -33,19 +33,25 @@ export async function POST(request: NextRequest) {
         const contentLength = response.headers.get("content-length");
 
         const cleanTitle = songTitle
-            .replace(/&quot;/g, '”')
+            .replace(/&quot;/g, "'")
             .replace(/&#39;/g, "'")
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/["″]/g, "”")
+            .replace(/[/\\?%*:|<>]/g, " ")
+            .replace(/\s+/g, " ")
             .trim();
 
-        const cleanArtist = (primaryArtists || 'Unknown Artist')
-            .replace(/&quot;/g, '”')
+        const cleanArtist = (primaryArtists || "Unknown Artist")
+            .replace(/&quot;/g, "'")
             .replace(/&#39;/g, "'")
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/["″]/g, "”")
+            .replace(/[/\\?%*:|<>]/g, " ")
+            .replace(/\s+/g, " ")
             .trim();
 
         const fileName = `${cleanTitle} - ${cleanArtist} (320K) - Sanvia.mp3`;

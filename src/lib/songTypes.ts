@@ -1,3 +1,5 @@
+import { decodeHTMLEntities } from "./helpers";
+
 export interface Artist {
     id: string;
     name: string;
@@ -51,7 +53,205 @@ interface RawAlbum {
 const SANVIA_BASE_API = process.env.NEXT_PUBLIC_SANVIA_BASE_API_URL;
 const TRENDING_PLAYLIST_ID = process.env.NEXT_PUBLIC_TRENDING_PLAYLIST_ID;
 const PLAYLIST_BY_ID_API = process.env.NEXT_PUBLIC_PLAYLIST_BY_ID_API_URL;
+const VIRAL_PLAYLIST_ID = process.env.NEXT_PUBLIC_VIRAL_NATION_PLAYLIST_ID;
 const ALBUM_SEARCH_API = process.env.NEXT_PUBLIC_ALBUM_SEARCH_API_URL;
+
+interface RawSongItem {
+    id?: string;
+    name?: string;
+    primaryArtists?: string;
+    image?: string | Array<{ quality: string; url: string }>;
+    downloadUrl?: string | Array<{ quality: string; url: string }>;
+    url?: string;
+    type?: string;
+    artists?: {
+        primary?: Array<{ name: string }>;
+        all?: Array<{ name: string }>;
+    };
+}
+
+interface WeightedArtist {
+    name: string;
+    weight: number;
+}
+
+
+const DEFAULT_LIST_SIZE = 12;
+const TARGET_SONGS = DEFAULT_LIST_SIZE;
+const ABSOLUTE_MAX_PER_ARTIST = 3;
+const HISTORY_SEED_LIMIT = 6;
+const FALLBACK_SEED_LIMIT = 3;
+const MAX_ALBUM_KEY_LENGTH = 3;
+
+const ARTIST_BUCKETS: readonly (readonly string[])[] = [
+    ["Arijit Singh", "Shreya Ghoshal", "Pritam", "Tanishk Bagchi", "Vishal Mishra", "Amit Trivedi", "Jubin Nautiyal", "Neha Kakkar", "Armaan Malik", "Atif Aslam", "Sonu Nigam", "Udit Narayan", "Alka Yagnik", "Kumar Sanu", "A.R. Rahman", "Sachet-Parampara", "B Praak", "Sachin-Jigar", "Mithoon"],
+    ["Diljit Dosanjh", "Karan Aujla", "AP Dhillon", "Guru Randhawa", "Harrdy Sandhu", "Sidhu Moose Wala", "Badshah", "Yo Yo Honey Singh", "Shubh"],
+    ["Pawan Singh", "Khesari Lal Yadav", "Neelkamal Singh", "Shilpi Raj", "Ritesh Pandey", "Manoj Tiwari", "Dinesh Lal Yadav", "Pramod Premi Yadav"],
+    ["Ajay-Atul", "Adarsh Shinde", "Avadhoot Gupte", "Bela Shende", "Swapnil Bandodkar", "Aarya Ambekar", "Shreya Ghoshal Marathi"],
+    ["Anirudh Ravichander", "Ilaiyaraaja", "S.P. Balasubrahmanyam", "Sid Sriram", "Devi Sri Prasad", "Thaman S", "K.S. Chithra", "Hariharan", "Vijay Prakash"],
+    ["Prateek Kuhad", "Anuv Jain", "King", "Divine", "KRSNA", "MC Stan", "Mitraz"],
+];
+
+const sanitizeName = (name: string): string =>
+    name.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z0-9]/g, "").slice(0, 15);
+
+const getAlbumKey = (songName: string): string | null =>
+    songName.match(/\(from\s+["']?([^)"']+)["']?\)/i)?.[1]
+        .toLowerCase()
+        .replace(/\b(the|original|motion|picture|soundtrack|revenge|part)\b/g, "")
+        .replace(/[^a-z0-9 ]/g, "")
+        .trim()
+        .split(" ")
+        .find(Boolean) ?? null;
+
+const primaryArtistKey = (song: Song): string =>
+    (song.primaryArtists ?? "").split(",")[0]?.trim().toLowerCase() ?? "";
+
+const extractArtistString = (song: Song): string => {
+    const raw = song.primaryArtists || song.artists?.primary?.map(a => a.name).join(", ") || "";
+    return raw ? decodeHTMLEntities(raw) : "";
+};
+
+const extractImage = (image: RawSongItem["image"]): string =>
+    typeof image === "string" ? image : (Array.isArray(image) ? image.find(i => i.quality === "500x500")?.url || image[0]?.url || "" : "");
+
+const extractDownloadUrl = (item: RawSongItem): string =>
+    Array.isArray(item.downloadUrl) ? item.downloadUrl.find(q => q.quality === "320kbps")?.url || item.downloadUrl[0]?.url || "" : item.url || "";
+
+const parseItem = (item: RawSongItem): Song | null => {
+    if (!item.id) return null;
+    const rawArtists = item.primaryArtists || item.artists?.primary?.map(a => a.name).join(", ") || item.artists?.all?.map(a => a.name).join(", ") || "";
+    const downloadUrl = extractDownloadUrl(item);
+
+    return {
+        id: item.id,
+        name: decodeHTMLEntities(item.name || ""),
+        primaryArtists: decodeHTMLEntities(rawArtists),
+        image: extractImage(item.image),
+        downloadUrl,
+        streamingUrl: downloadUrl,
+        type: item.type || "song",
+    };
+};
+
+const extractResults = (data: unknown): RawSongItem[] => {
+    const d = data as { data?: { results?: RawSongItem[] }; results?: RawSongItem[] } | RawSongItem[] | null | undefined;
+    return Array.isArray(d) ? d : d?.data?.results ?? d?.results ?? [];
+};
+
+const parseSongsDeduped = (items: RawSongItem[]): Song[] => {
+    const seen = new Set<string>();
+    return items.reduce<Song[]>((acc, item) => {
+        const parsed = parseItem(item);
+        if (!parsed) return acc;
+        const key = sanitizeName(parsed.name);
+        if (!seen.has(key)) { seen.add(key); acc.push(parsed); }
+        return acc;
+    }, []);
+};
+
+const extractHistoryArtists = (history: { song: Song }[]): WeightedArtist[] => {
+    const weights: Record<string, number> = {};
+    history.forEach(({ song }) => {
+        extractArtistString(song)
+            .split(",")
+            .map(a => a.trim())
+            .filter(a => a && a !== "Unknown Artist")
+            .forEach((name, idx) => weights[name] = (weights[name] ?? 0) + (idx === 0 ? 2 : 1));
+    });
+
+    return Object.entries(weights)
+        .sort(([, a], [, b]) => b - a)
+        .map(([name, weight]) => ({ name, weight }));
+};
+
+function shuffleArray<T>(array: T[]): T[] {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+export async function fetchMadeForYou(history: { song: Song }[]): Promise<Song[]> {
+    const SEARCH_API = process.env.NEXT_PUBLIC_SONG_SEARCH_PRIMARY_API_URL;
+    if (!SEARCH_API) return [];
+
+    const historyArtists = extractHistoryArtists(history);
+
+    const fetchRawResults = async (url: string) => fetch(url).then(r => r.ok ? r.json() : []).then(extractResults).catch(() => []);
+    const fetchArtistSongs = async (artist: string, pages = 3) => parseSongsDeduped(await fetchRawResults(`${SEARCH_API}${encodeURIComponent(artist)}&page=${Math.floor(Math.random() * pages) + 1}`));
+
+    const allSuggestions: Song[] = [];
+    const pickedNames = new Set<string>();
+    const artistTally = new Map<string, number>();
+    const albumTally = new Map<string, number>();
+
+    const selectSongs = (pools: Song[][], getCap: (key: string) => number) => {
+        let hasMore = true;
+
+        for (let idx = 0; allSuggestions.length < TARGET_SONGS && hasMore; idx++) {
+            hasMore = false;
+            for (const pool of pools) {
+                const song = pool[idx];
+                if (!song || pickedNames.has(sanitizeName(song.name))) continue;
+                hasMore = true;
+
+                const artistKey = primaryArtistKey(song);
+                if (artistKey && (artistTally.get(artistKey) ?? 0) >= getCap(artistKey)) {
+                    continue;
+                }
+
+                const albumKey = getAlbumKey(song.name);
+                const hasAlbum = !!albumKey && albumKey.length > MAX_ALBUM_KEY_LENGTH;
+                if (hasAlbum && (albumTally.get(albumKey) ?? 0) >= 1) {
+                    continue;
+                }
+
+                allSuggestions.push(song);
+                pickedNames.add(sanitizeName(song.name));
+
+                if (artistKey) artistTally.set(artistKey, (artistTally.get(artistKey) ?? 0) + 1);
+                if (hasAlbum) albumTally.set(albumKey, (albumTally.get(albumKey) ?? 0) + 1);
+
+                if (allSuggestions.length === TARGET_SONGS) {
+                    return;
+                }
+            }
+        }
+    };
+
+    if (historyArtists.length) {
+        const seeds = historyArtists.slice(0, HISTORY_SEED_LIMIT);
+
+        const pools = await Promise.all(seeds.map(a => fetchArtistSongs(a.name, 3)));
+        const totalWeight = Math.max(1, seeds.reduce((sum, a) => sum + a.weight, 0));
+
+        const caps = new Map(seeds.map(a => [
+            a.name.toLowerCase(),
+            Math.max(1, Math.min(ABSOLUTE_MAX_PER_ARTIST, Math.round((a.weight / totalWeight) * TARGET_SONGS)))
+        ]));
+
+        selectSongs(pools, key => caps.get(key) ?? 1);
+        if (allSuggestions.length < TARGET_SONGS) selectSongs(pools, () => ABSOLUTE_MAX_PER_ARTIST);
+    }
+
+    if (allSuggestions.length < TARGET_SONGS) {
+        const fallbackSeeds = shuffleArray([...ARTIST_BUCKETS]).slice(0, FALLBACK_SEED_LIMIT).map(b => b[Math.floor(Math.random() * b.length)]);
+
+        const pools = await Promise.all(fallbackSeeds.map(a => fetchArtistSongs(a, 1)));
+        selectSongs(pools, () => 2);
+        if (allSuggestions.length < TARGET_SONGS) selectSongs(pools, () => ABSOLUTE_MAX_PER_ARTIST);
+    }
+
+    if (allSuggestions.length < TARGET_SONGS) {
+        const raw = await fetchRawResults(`${SEARCH_API}hindi`);
+        selectSongs([parseSongsDeduped(raw)], () => ABSOLUTE_MAX_PER_ARTIST);
+    }
+
+    return shuffleArray(allSuggestions);
+}
 
 export async function fetchNewReleases(retries = 3): Promise<Song[]> {
     const apiBase = process.env.SANVIA_BASE_API_URL || process.env.NEXT_PUBLIC_SANVIA_BASE_API_URL;
@@ -169,6 +369,67 @@ export async function fetchNowTrendingSongs(): Promise<Song[]> {
     }
 }
 
+export async function fetchViralSongs(): Promise<Song[]> {
+    const LIMIT = 12;
+
+    if (!PLAYLIST_BY_ID_API || !VIRAL_PLAYLIST_ID) {
+        return [];
+    }
+
+    const endpoint = `${PLAYLIST_BY_ID_API}${VIRAL_PLAYLIST_ID}&limit=${LIMIT}`;
+
+    try {
+        const response = await fetch(endpoint);
+        if (!response.ok) return [];
+
+        const data = await response.json();
+        if (!data.success || !data.data || !Array.isArray(data.data.songs)) {
+            return [];
+        }
+
+        return data.data.songs.map((item: Song) => {
+            let primaryArtists = "";
+            if (item.artists?.primary?.length) {
+                primaryArtists = item.artists.primary.map((artist: Artist) => artist.name).join(", ");
+            } else if (item.artists?.all?.length) {
+                primaryArtists = item.artists.all.map((artist: Artist) => artist.name).join(", ");
+            } else {
+                primaryArtists = item.primaryArtists || "";
+            }
+
+            let image = "";
+            if (Array.isArray(item.image)) {
+                const img500 = item.image.find((img) => img.quality === "500x500");
+                image = img500?.url || item.image[0]?.url || "";
+            } else if (typeof item.image === "string") {
+                image = item.image;
+            }
+
+            let downloadUrl = "";
+            if (Array.isArray(item.downloadUrl)) {
+                const url320 = item.downloadUrl.find((q) => q.quality === "320kbps");
+                downloadUrl = url320?.url || item.downloadUrl[0]?.url || "";
+            }
+            if (!downloadUrl && item.url) {
+                downloadUrl = item.url;
+            }
+
+            return {
+                id: item.id || "",
+                name: item.name || "",
+                primaryArtists,
+                image,
+                downloadUrl,
+                streamingUrl: downloadUrl || "",
+            } as Song;
+        });
+
+    } catch (error) {
+        console.error("Failed to fetch Viral songs:", error);
+        return [];
+    }
+}
+
 async function searchAlbums(term: string, limit = 20, page = 0): Promise<Album[]> {
     if (!ALBUM_SEARCH_API) return [];
 
@@ -217,15 +478,6 @@ function generateRandomTwoLetterTerms(count: number): string[] {
     }
 
     return Array.from(terms);
-}
-
-function shuffleArray<T>(array: T[]): T[] {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
 }
 
 export async function fetchRandomAlbums(): Promise<Album[]> {
@@ -366,14 +618,20 @@ export async function downloadSong(
         const blob = new Blob(chunks.map(chunk => new Uint8Array(chunk)), { type: 'audio/mpeg' });
         const objectUrl = window.URL.createObjectURL(blob);
 
-        const safeTitle = songTitle
-            .replace(/[/\\?%*:|"<>]/g, ' ')
-            .replace(/\s+/g, ' ')
+        const decodedTitle = decodeHTMLEntities(songTitle);
+        const decodedArtist = decodeHTMLEntities(primaryArtists || "Unknown Artist");
+
+        const safeTitle = decodedTitle
+            .replace(/["″]/g, "”")
+            .replace(/[/\\?%*:|<>]/g, " ")
+            .replace(/\s+/g, " ")
             .trim()
             .slice(0, 150);
 
-        const safeArtist = (primaryArtists || 'Unknown Artist')
-            .replace(/[/\\?%*:|"<>]/g, ' ')
+        const safeArtist = decodedArtist
+            .replace(/["″]/g, "”")
+            .replace(/[/\\?%*:|<>]/g, " ")
+            .replace(/\s+/g, " ")
             .trim();
 
         const fileName = `${safeTitle} - ${safeArtist} (320K) - Sanvia.mp3`;

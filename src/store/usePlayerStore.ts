@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Song, Album, Artist } from '@/lib/songTypes';
 
 export type PlaybackSource = "queued" | "album" | "artist" | "recommended" | "homeFeed";
@@ -27,6 +28,7 @@ const findValidIndex = (
 
     return idx;
 };
+
 interface PlayerStore {
     isModalOpen: boolean;
     isExpanded: boolean;
@@ -49,8 +51,11 @@ interface PlayerStore {
     albumSongs: Song[];
     homeFeed: Song[];
 
+    madeForYou: Song[];
+    madeForYouGeneratedAt: number;
     newReleases: Song[];
     nowTrendingSongs: Song[];
+    viralSongs: Song[];
     albums: Album[];
     topArtists: Artist[];
 
@@ -62,7 +67,17 @@ interface PlayerStore {
     setLoading: (loading: boolean) => void;
     setContentType: (type: ContentType) => void;
     setContextId: (id: string | null) => void;
-    setPageData: (data: { newReleases: Song[]; nowTrendingSongs: Song[]; albums: Album[]; topArtists: Artist[]; }) => void;
+    setMadeForYou: (songs: Song[]) => void;
+    setMadeForYouGeneratedAt: (count: number) => void;
+    setPageData: (
+        data: {
+            newReleases: Song[];
+            nowTrendingSongs: Song[];
+            viralSongs: Song[];
+            albums: Album[];
+            topArtists: Artist[];
+        }
+    ) => void;
 
     setHomeFeed: (feed: Song[]) => void;
     setAlbumSongs: (songs: Song[]) => void;
@@ -76,310 +91,380 @@ interface PlayerStore {
     resetPlayback: () => void;
 }
 
-export const usePlayerStore = create<PlayerStore>((set, get) => ({
-    isModalOpen: false,
-    isExpanded: false,
-    selectedItem: null,
-    artistHelper: true,
-    loading: false,
-    contentType: null,
-    contextId: null,
+export const usePlayerStore = create<PlayerStore>()(
+    persist(
+        (set, get) => ({
+            isModalOpen: false,
+            isExpanded: false,
+            selectedItem: null,
+            artistHelper: true,
+            loading: false,
+            contentType: null,
+            contextId: null,
 
-    activeSource: "homeFeed",
-    indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
-    isShuffle: false,
-    shuffleDeck: [],
-    currentSong: null,
-    history: [],
+            activeSource: "homeFeed",
+            indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
+            isShuffle: false,
+            shuffleDeck: [],
+            currentSong: null,
+            history: [],
 
-    queuedSongs: [],
-    recommendedSongs: [],
-    artistSongs: [],
-    albumSongs: [],
-    homeFeed: [],
+            queuedSongs: [],
+            recommendedSongs: [],
+            artistSongs: [],
+            albumSongs: [],
+            homeFeed: [],
 
-    newReleases: [],
-    nowTrendingSongs: [],
-    albums: [],
-    topArtists: [],
+            madeForYou: [],
+            madeForYouGeneratedAt: 0,
+            newReleases: [],
+            nowTrendingSongs: [],
+            viralSongs: [],
+            albums: [],
+            topArtists: [],
 
-    setIsModalOpen: (isOpen) => set({ isModalOpen: isOpen }),
-    setIsExpanded: (isExpanded) => set({ isExpanded: isExpanded }),
-    setArtistHelper: (helper) => set({ artistHelper: helper }),
-    setLoading: (loading) => set({ loading }),
-    setContentType: (type) => set({ contentType: type }),
-    setContextId: (id) => set({ contextId: id }),
-    setPageData: (data) => set({ ...data }),
+            setIsModalOpen: (isOpen) => set({ isModalOpen: isOpen }),
+            setIsExpanded: (isExpanded) => set({ isExpanded: isExpanded }),
+            setArtistHelper: (helper) => set({ artistHelper: helper }),
+            setLoading: (loading) => set({ loading }),
+            setContentType: (type) => set({ contentType: type }),
+            setContextId: (id) => set({ contextId: id }),
+            setMadeForYou: (songs) => set({ madeForYou: songs }),
+            setMadeForYouGeneratedAt: (count) => set({ madeForYouGeneratedAt: count }),
+            setPageData: (data) => set({ ...data }),
 
-    openModal: (item, songs) => {
-        const isArtistItem = !!item && "follower_count" in item;
+            openModal: (item, songs) => {
+                const isArtistItem = !!item && "follower_count" in item;
 
-        if (isArtistItem) {
-            set({
-                selectedItem: item,
-                homeFeed: songs,
-                isExpanded: true,
-                isModalOpen: true,
-                currentSong: null,
-                activeSource: "homeFeed",
-                indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
-                albumSongs: [],
-                recommendedSongs: [],
-            });
-        } else {
-            let feed = [...songs];
-            let targetIdx = item ? feed.findIndex((s) => s.id === item.id) : -1;
-
-            if (targetIdx === -1 && item) {
-                feed = [item as Song, ...feed];
-                targetIdx = 0;
-            }
-
-            set({
-                selectedItem: item,
-                homeFeed: feed,
-                isExpanded: true,
-                isModalOpen: true,
-            });
-
-            if (targetIdx !== -1) {
-                get().play("homeFeed", targetIdx);
-            }
-        }
-    },
-
-    closeModal: () => set({
-        isModalOpen: false,
-        selectedItem: null,
-        homeFeed: [],
-    }),
-
-    setHomeFeed: (feed) => set({ homeFeed: feed }),
-    setAlbumSongs: (songs) => set((state) => ({
-        albumSongs: songs,
-        indices: { ...state.indices, album: -1 }
-    })),
-    setRecommendedSongs: (songs) => set((state) => ({
-        recommendedSongs: songs,
-        indices: { ...state.indices, recommended: -1, artist: -1 }
-    })),
-    setQueuedSongs: (updater) => set((state) => ({
-        queuedSongs: typeof updater === 'function' ? updater(state.queuedSongs) : updater
-    })),
-
-    play: (source, index) => set((state) => {
-        const sourceMap = {
-            queued: state.queuedSongs,
-            album: state.albumSongs,
-            artist: state.artistSongs,
-            recommended: state.recommendedSongs,
-            homeFeed: state.homeFeed
-        };
-        const songs = sourceMap[source] || [];
-        let safeIndex = Math.min(index, Math.max(0, songs.length - 1));
-
-        if (!songs[safeIndex]?.downloadUrl) {
-            const validIdx = findValidIndex(songs, index - 1, 1);
-            safeIndex = validIdx >= 0 && validIdx < songs.length ? validIdx : 0;
-        }
-
-        let newDeck = state.shuffleDeck;
-        if (state.isShuffle) {
-            const validIndices = songs.map((_, idx) => idx).filter(idx => idx !== safeIndex && songs[idx]?.downloadUrl);
-            for (let i = validIndices.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [validIndices[i], validIndices[j]] = [validIndices[j], validIndices[i]];
-            }
-            newDeck = validIndices;
-        }
-
-        const songToPlay = songs[safeIndex] || null;
-        const historyItem = state.currentSong ? { song: state.currentSong, source: state.activeSource, index: state.indices[state.activeSource] } : null;
-        const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
-
-        return {
-            activeSource: source,
-            indices: { ...state.indices, [source]: safeIndex },
-            currentSong: songToPlay,
-            shuffleDeck: newDeck,
-            selectedItem: isArtistContext ? state.selectedItem : songToPlay,
-            history: historyItem ? [...state.history, historyItem].slice(-50) : state.history,
-        };
-    }),
-
-    next: () => {
-        const state = get();
-        let consumedId: string | null = null;
-
-        if (state.activeSource === 'queued') {
-            consumedId = state.currentSong?.id || null;
-        }
-
-        set((prev) => {
-            const sourceMap = {
-                queued: prev.queuedSongs,
-                album: prev.albumSongs,
-                artist: prev.artistSongs,
-                recommended: prev.recommendedSongs,
-                homeFeed: prev.homeFeed,
-            };
-
-            const historyItem = prev.currentSong ? { song: prev.currentSong, source: prev.activeSource, index: prev.indices[prev.activeSource] } : null;
-            const newHistory = historyItem ? [...prev.history, historyItem].slice(-50) : prev.history;
-
-            const skippedIds = new Set(
-                newHistory
-                    .filter((h) => h.source === 'queued')
-                    .map((h) => h.song.id)
-            );
-
-            const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
-
-            const commitNext = (source: PlaybackSource, idx: number, song: Song, newDeck?: number[]) => ({
-                activeSource: source,
-                indices: { ...prev.indices, [source]: idx },
-                currentSong: song,
-                selectedItem: isArtistContext ? state.selectedItem : song,
-                history: newHistory,
-                ...(newDeck !== undefined ? { shuffleDeck: newDeck } : {})
-            });
-
-            if (prev.queuedSongs.length > 0) {
-                if (prev.activeSource === 'queued') {
-                    const nextIdx = findValidIndex(prev.queuedSongs, prev.indices['queued'], 1);
-                    if (nextIdx >= 0 && nextIdx < prev.queuedSongs.length) {
-                        return commitNext('queued', 0, prev.queuedSongs[nextIdx]);
-                    }
+                if (isArtistItem) {
+                    set({
+                        selectedItem: item,
+                        homeFeed: songs,
+                        isExpanded: true,
+                        isModalOpen: true,
+                        currentSong: null,
+                        activeSource: "homeFeed",
+                        indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
+                        albumSongs: [],
+                        recommendedSongs: [],
+                    });
                 } else {
-                    const validIdx = findValidIndex(prev.queuedSongs, -1, 1);
-                    if (validIdx >= 0 && validIdx < prev.queuedSongs.length) {
-                        return commitNext('queued', validIdx, prev.queuedSongs[validIdx]);
+                    let feed = [...songs];
+                    let targetIdx = item ? feed.findIndex((s) => s.id === item.id) : -1;
+
+                    if (targetIdx === -1 && item) {
+                        feed = [item as Song, ...feed];
+                        targetIdx = 0;
+                    } else if (targetIdx !== -1 && item) {
+                        feed[targetIdx] = item as Song;
+                    }
+
+                    set({
+                        selectedItem: item,
+                        homeFeed: feed,
+                        isExpanded: true,
+                        isModalOpen: true,
+                    });
+
+                    if (targetIdx !== -1) {
+                        get().play("homeFeed", targetIdx);
                     }
                 }
-            }
+            },
 
-            if (prev.isShuffle) {
-                if (prev.shuffleDeck.length > 0) {
-                    let nextIdx = prev.shuffleDeck[0];
-                    let remainingDeck = prev.shuffleDeck.slice(1);
-                    const currentArray = sourceMap[prev.activeSource] || [];
+            closeModal: () => set({
+                isModalOpen: false,
+                selectedItem: null,
+                homeFeed: [],
+            }),
 
-                    while (remainingDeck.length > 0) {
-                        const candidateIdx = remainingDeck[0];
-                        remainingDeck = remainingDeck.slice(1);
-                        const candidateSong = currentArray[candidateIdx];
+            setHomeFeed: (feed) => set({ homeFeed: feed }),
+            setAlbumSongs: (songs) => set((state) => ({
+                albumSongs: songs,
+                indices: { ...state.indices, album: -1 }
+            })),
+            setRecommendedSongs: (songs) => set((state) => ({
+                recommendedSongs: songs,
+                indices: { ...state.indices, recommended: -1, artist: -1 }
+            })),
+            setQueuedSongs: (updater) => set((state) => ({
+                queuedSongs: typeof updater === 'function' ? updater(state.queuedSongs) : updater
+            })),
 
-                        if (candidateSong && !skippedIds.has(candidateSong.id)) {
-                            nextIdx = candidateIdx;
-                            break;
+            play: (source, index) => set((state) => {
+                const sourceMap = {
+                    queued: state.queuedSongs,
+                    album: state.albumSongs,
+                    artist: state.artistSongs,
+                    recommended: state.recommendedSongs,
+                    homeFeed: state.homeFeed
+                };
+                const songs = sourceMap[source] || [];
+                let safeIndex = Math.min(index, Math.max(0, songs.length - 1));
+
+                if (!songs[safeIndex]?.downloadUrl) {
+                    const validIdx = findValidIndex(songs, index - 1, 1);
+                    safeIndex = validIdx >= 0 && validIdx < songs.length ? validIdx : 0;
+                }
+
+                let newDeck = state.shuffleDeck;
+                if (state.isShuffle) {
+                    const validIndices = songs.map((_, idx) => idx).filter(idx => idx !== safeIndex && songs[idx]?.downloadUrl);
+                    for (let i = validIndices.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [validIndices[i], validIndices[j]] = [validIndices[j], validIndices[i]];
+                    }
+                    newDeck = validIndices;
+                }
+
+                const songToPlay = songs[safeIndex] || null;
+                const historyItem = state.currentSong && state.currentSong.type !== 'album'
+                    ? { song: state.currentSong, source: state.activeSource, index: state.indices[state.activeSource] }
+                    : null;
+                const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
+
+                return {
+                    activeSource: source,
+                    indices: { ...state.indices, [source]: safeIndex },
+                    currentSong: songToPlay,
+                    shuffleDeck: newDeck,
+                    selectedItem: isArtistContext ? state.selectedItem : songToPlay,
+                    history: historyItem ? [...state.history, historyItem].slice(-50) : state.history,
+                };
+            }),
+
+            next: () => {
+                const state = get();
+                let consumedId: string | null = null;
+
+                if (state.activeSource === 'queued') {
+                    consumedId = state.currentSong?.id || null;
+                }
+
+                set((prev) => {
+                    const sourceMap = {
+                        queued: prev.queuedSongs,
+                        album: prev.albumSongs,
+                        artist: prev.artistSongs,
+                        recommended: prev.recommendedSongs,
+                        homeFeed: prev.homeFeed,
+                    };
+
+                    const historyItem = prev.currentSong && prev.currentSong.type !== 'album'
+                        ? { song: prev.currentSong, source: prev.activeSource, index: prev.indices[prev.activeSource] }
+                        : null;
+                    const newHistory = historyItem ? [...prev.history, historyItem].slice(-50) : prev.history;
+
+                    const skippedIds = new Set(
+                        newHistory
+                            .filter((h) => h.source === 'queued')
+                            .map((h) => h.song.id)
+                    );
+
+                    const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
+
+                    const commitNext = (source: PlaybackSource, idx: number, song: Song, newDeck?: number[]) => ({
+                        activeSource: source,
+                        indices: { ...prev.indices, [source]: idx },
+                        currentSong: song,
+                        selectedItem: isArtistContext ? state.selectedItem : song,
+                        history: newHistory,
+                        ...(newDeck !== undefined ? { shuffleDeck: newDeck } : {})
+                    });
+
+                    if (prev.queuedSongs.length > 0) {
+                        if (prev.activeSource === 'queued') {
+                            const nextIdx = findValidIndex(prev.queuedSongs, prev.indices['queued'], 1);
+                            if (nextIdx >= 0 && nextIdx < prev.queuedSongs.length) {
+                                return commitNext('queued', 0, prev.queuedSongs[nextIdx]);
+                            }
+                        } else {
+                            const validIdx = findValidIndex(prev.queuedSongs, -1, 1);
+                            if (validIdx >= 0 && validIdx < prev.queuedSongs.length) {
+                                return commitNext('queued', validIdx, prev.queuedSongs[validIdx]);
+                            }
                         }
                     }
 
-                    if (nextIdx !== -1) {
-                        return commitNext(prev.activeSource, nextIdx, currentArray[nextIdx], remainingDeck);
-                    }
-                }
+                    if (prev.isShuffle) {
+                        if (prev.shuffleDeck.length > 0) {
+                            let nextIdx = prev.shuffleDeck[0];
+                            let remainingDeck = prev.shuffleDeck.slice(1);
+                            const currentArray = sourceMap[prev.activeSource] || [];
 
-                if (DYNAMIC_SOURCES.includes(prev.activeSource)) {
+                            while (remainingDeck.length > 0) {
+                                const candidateIdx = remainingDeck[0];
+                                remainingDeck = remainingDeck.slice(1);
+                                const candidateSong = currentArray[candidateIdx];
+
+                                if (candidateSong && !skippedIds.has(candidateSong.id)) {
+                                    nextIdx = candidateIdx;
+                                    break;
+                                }
+                            }
+
+                            if (nextIdx !== -1) {
+                                return commitNext(prev.activeSource, nextIdx, currentArray[nextIdx], remainingDeck);
+                            }
+                        }
+
+                        if (DYNAMIC_SOURCES.includes(prev.activeSource)) {
+                            return prev;
+                        }
+                    }
+
+                    if (DYNAMIC_SOURCES.includes(prev.activeSource)) {
+                        const currentArray = sourceMap[prev.activeSource] || [];
+                        const nextIdx = findValidIndex(currentArray, prev.indices[prev.activeSource], 1, skippedIds);
+                        if (nextIdx >= 0 && nextIdx < currentArray.length) {
+                            return commitNext(prev.activeSource, nextIdx, currentArray[nextIdx]);
+                        }
+                    } else if (prev.activeSource === 'homeFeed') {
+                        for (const source of DYNAMIC_SOURCES) {
+                            const dynSongs = sourceMap[source] || [];
+                            if (dynSongs.length > 0) {
+                                const validIdx = findValidIndex(dynSongs, prev.indices[source], 1, skippedIds);
+                                if (validIdx >= 0 && validIdx < dynSongs.length) {
+                                    return commitNext(source, validIdx, dynSongs[validIdx]);
+                                }
+                            }
+                        }
+
+                        const currentArray = sourceMap['homeFeed'] || [];
+                        const nextIdx = findValidIndex(currentArray, prev.indices['homeFeed'], 1, skippedIds);
+                        if (nextIdx >= 0 && nextIdx < currentArray.length) {
+                            return commitNext('homeFeed', nextIdx, currentArray[nextIdx]);
+                        }
+                    }
+
+                    const startPos = SOURCE_ORDER.indexOf(prev.activeSource);
+                    for (let i = startPos + 1; i < SOURCE_ORDER.length; i++) {
+                        const nextSource = SOURCE_ORDER[i];
+                        const nextArray = sourceMap[nextSource] || [];
+                        if (nextArray.length > 0) {
+                            const fallbackIdx = findValidIndex(nextArray, prev.indices[nextSource], 1, skippedIds);
+                            if (fallbackIdx >= 0 && fallbackIdx < nextArray.length) {
+                                return commitNext(nextSource, fallbackIdx, nextArray[fallbackIdx]);
+                            }
+                        }
+                    }
                     return prev;
-                }
-            }
+                });
 
-            if (DYNAMIC_SOURCES.includes(prev.activeSource)) {
-                const currentArray = sourceMap[prev.activeSource] || [];
-                const nextIdx = findValidIndex(currentArray, prev.indices[prev.activeSource], 1, skippedIds);
-                if (nextIdx >= 0 && nextIdx < currentArray.length) {
-                    return commitNext(prev.activeSource, nextIdx, currentArray[nextIdx]);
+                if (consumedId) {
+                    get().setQueuedSongs((prevSongs) => prevSongs.filter(s => s.id !== consumedId));
                 }
-            } else if (prev.activeSource === 'homeFeed') {
-                for (const source of DYNAMIC_SOURCES) {
-                    const dynSongs = sourceMap[source] || [];
-                    if (dynSongs.length > 0) {
-                        const validIdx = findValidIndex(dynSongs, prev.indices[source], 1, skippedIds);
-                        if (validIdx >= 0 && validIdx < dynSongs.length) {
-                            return commitNext(source, validIdx, dynSongs[validIdx]);
-                        }
+            },
+
+            previous: () => {
+                const state = get();
+                if (state.history.length === 0) return;
+
+                set((prev) => {
+                    const newHistory = [...prev.history];
+                    const lastPlayed = newHistory.pop()!;
+
+                    const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
+
+                    return {
+                        activeSource: lastPlayed.source,
+                        indices: { ...prev.indices, [lastPlayed.source]: lastPlayed.index },
+                        currentSong: lastPlayed.song,
+                        selectedItem: isArtistContext ? state.selectedItem : lastPlayed.song,
+                        history: newHistory,
+                    };
+                });
+            },
+
+            toggleShuffle: () => set((state) => {
+                const newIsShuffle = !state.isShuffle;
+                if (newIsShuffle) {
+                    const sourceMap = {
+                        queued: state.queuedSongs,
+                        album: state.albumSongs,
+                        artist: state.artistSongs,
+                        recommended: state.recommendedSongs,
+                        homeFeed: state.homeFeed
+                    };
+                    const currentArray = sourceMap[state.activeSource] || [];
+                    const currentIndex = state.indices[state.activeSource];
+
+                    const validIndices = currentArray.map((_, idx) => idx).filter((idx) => idx !== currentIndex && currentArray[idx]?.downloadUrl);
+
+                    for (let i = validIndices.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [validIndices[i], validIndices[j]] = [validIndices[j], validIndices[i]];
                     }
+                    return { isShuffle: true, shuffleDeck: validIndices };
+                }
+                return { isShuffle: false, shuffleDeck: [] };
+            }),
+
+            resetPlayback: () => set((state) => {
+                const historyItem = state.currentSong && state.currentSong.type !== 'album'
+                    ? { song: state.currentSong, source: state.activeSource, index: state.indices[state.activeSource] }
+                    : null;
+                return {
+                    activeSource: "homeFeed",
+                    indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
+                    isShuffle: false,
+                    currentSong: null,
+                    history: historyItem ? [...state.history, historyItem].slice(-50) : state.history,
+                    albumSongs: [],
+                    recommendedSongs: [],
+                    contextId: null,
+                };
+            }),
+        }),
+        {
+            name: 'sanvia-player-history',
+            version: 0,
+            storage: createJSONStorage(() => ({
+                getItem: (name) => {
+                    if (typeof window === 'undefined') return null;
+                    return localStorage.getItem(name);
+                },
+                setItem: (name, value) => {
+                    if (typeof window === 'undefined') return;
+                    localStorage.setItem(name, value);
+                },
+                removeItem: (name) => {
+                    if (typeof window === 'undefined') return;
+                    localStorage.removeItem(name);
+                },
+            })),
+            migrate: (persistedState: unknown) => {
+                const state = persistedState as { history?: Array<{ song: Song | Album;[key: string]: unknown }> };
+
+                const rawHistory = state?.history ?? [];
+                const seenIds = new Set<string>();
+                const cleanedHistory = [];
+
+                const looksLikeAlbum = (song: Song | Album) =>
+                    song.type === 'album' ||
+                    (!song.type && typeof song.downloadUrl === 'string' && song.downloadUrl.includes('/album/'));
+
+                for (const entry of rawHistory) {
+                    const song = entry?.song;
+                    if (!song?.id) continue;
+                    if (looksLikeAlbum(song)) continue;
+                    if (seenIds.has(song.id)) continue;
+                    seenIds.add(song.id);
+                    cleanedHistory.push(entry);
                 }
 
-                const currentArray = sourceMap['homeFeed'] || [];
-                const nextIdx = findValidIndex(currentArray, prev.indices['homeFeed'], 1, skippedIds);
-                if (nextIdx >= 0 && nextIdx < currentArray.length) {
-                    return commitNext('homeFeed', nextIdx, currentArray[nextIdx]);
-                }
-            }
-
-            const startPos = SOURCE_ORDER.indexOf(prev.activeSource);
-            for (let i = startPos + 1; i < SOURCE_ORDER.length; i++) {
-                const nextSource = SOURCE_ORDER[i];
-                const nextArray = sourceMap[nextSource] || [];
-                if (nextArray.length > 0) {
-                    const fallbackIdx = findValidIndex(nextArray, prev.indices[nextSource], 1, skippedIds);
-                    if (fallbackIdx >= 0 && fallbackIdx < nextArray.length) {
-                        return commitNext(nextSource, fallbackIdx, nextArray[fallbackIdx]);
-                    }
-                }
-            }
-            return prev;
-        });
-
-        if (consumedId) {
-            get().setQueuedSongs((prevSongs) => prevSongs.filter(s => s.id !== consumedId));
+                return { ...(persistedState as object), history: cleanedHistory };
+            },
+            partialize: (state) => {
+                const historyToSave = state.currentSong
+                    ? [...state.history, {
+                        song: state.currentSong,
+                        source: state.activeSource,
+                        index: state.indices[state.activeSource]
+                    }].slice(-50)
+                    : state.history;
+                return { history: historyToSave };
+            },
         }
-    },
-
-    previous: () => {
-        const state = get();
-        if (state.history.length === 0) return;
-
-        set((prev) => {
-            const newHistory = [...prev.history];
-            const lastPlayed = newHistory.pop()!;
-
-            const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
-
-            return {
-                activeSource: lastPlayed.source,
-                indices: { ...prev.indices, [lastPlayed.source]: lastPlayed.index },
-                currentSong: lastPlayed.song,
-                selectedItem: isArtistContext ? state.selectedItem : lastPlayed.song,
-                history: newHistory,
-            };
-        });
-    },
-
-    toggleShuffle: () => set((state) => {
-        const newIsShuffle = !state.isShuffle;
-        if (newIsShuffle) {
-            const sourceMap = {
-                queued: state.queuedSongs,
-                album: state.albumSongs,
-                artist: state.artistSongs,
-                recommended: state.recommendedSongs,
-                homeFeed: state.homeFeed
-            };
-            const currentArray = sourceMap[state.activeSource] || [];
-            const currentIndex = state.indices[state.activeSource];
-
-            const validIndices = currentArray.map((_, idx) => idx).filter((idx) => idx !== currentIndex && currentArray[idx]?.downloadUrl);
-
-            for (let i = validIndices.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [validIndices[i], validIndices[j]] = [validIndices[j], validIndices[i]];
-            }
-            return { isShuffle: true, shuffleDeck: validIndices };
-        }
-        return { isShuffle: false, shuffleDeck: [] };
-    }),
-
-    resetPlayback: () => set({
-        activeSource: "homeFeed",
-        indices: { queued: -1, album: -1, artist: -1, recommended: -1, homeFeed: 0 },
-        isShuffle: false,
-        currentSong: null,
-        history: [],
-        albumSongs: [],
-        recommendedSongs: [],
-        contextId: null,
-    })
-}));
+    )
+);
