@@ -9,6 +9,7 @@ import { useHomeSearch } from "./hooks/useHomeSearch";
 import SearchResults from "../Search/SearchResults";
 import PlayerView from "../Player/PlayerView";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import OnboardingTooltipManager from "../Tooltips/OnboardingTooltipManager";
 
 interface HomeViewProps {
     newReleases: Song[];
@@ -55,8 +56,6 @@ export default function HomeView({
         openModal(item, songs);
     }, [openModal]);
 
-    const showBackButton = isSearchActive;
-
     return (
         <div className="min-h-screen flex flex-col bg-black">
             <Header
@@ -64,8 +63,6 @@ export default function HomeView({
                 onInputChange={setInputQuery}
                 isValidQuery={isValidQuery}
                 onSearchSubmit={handleSearchSubmit}
-                showBackButton={showBackButton}
-                onBackClick={handleClearSearch}
                 isScrolled={isScrolled}
             />
 
@@ -73,6 +70,7 @@ export default function HomeView({
                 <SearchResults
                     query={searchQuery}
                     onSongSelect={handleSongSelect}
+                    onBackClick={handleClearSearch}
                 />
             ) : (
                 <HomeFeed />
@@ -81,6 +79,8 @@ export default function HomeView({
             <PlayerView />
 
             <Footer />
+
+            <OnboardingTooltipManager id="keyboard-shortcuts-tip" />
         </div>
     );
 }

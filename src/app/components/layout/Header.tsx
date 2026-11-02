@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faMagnifyingGlass, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
 interface HeaderProps {
@@ -14,8 +14,6 @@ interface HeaderProps {
     onInputChange: (value: string) => void;
     isValidQuery: boolean;
     onSearchSubmit: () => void;
-    showBackButton: boolean;
-    onBackClick: () => void;
     isScrolled?: boolean;
 }
 
@@ -24,8 +22,6 @@ export default function Header({
     onInputChange,
     isValidQuery,
     onSearchSubmit,
-    showBackButton,
-    onBackClick,
     isScrolled = false,
 }: HeaderProps) {
     const router = useRouter();
@@ -56,6 +52,8 @@ export default function Header({
         const handleShortcut = (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key.toLocaleLowerCase() === "m") {
                 e.preventDefault();
+                e.stopImmediatePropagation();
+
                 if (!isBlocked) {
                     document.getElementById(inputId)?.focus();
                 }
@@ -74,30 +72,16 @@ export default function Header({
             }
             ${isBlocked ? "pointer-events-none opacity-70" : ""}
         `}>
-            {showBackButton ? (
-                <Button
-                    variant="ghost"
-                    onClick={onBackClick}
-                    className="group my-auto mr-1.5 flex h-9 md:h-10 select-none items-center gap-2 transition-all md:duration-300 md:mr-0 cursor-pointer hover:text-white hover:bg-transparent"
-                >
-                    <FontAwesomeIcon
-                        icon={faArrowLeft}
-                        className="h-4 w-4 transform leading-none transition-transform group-hover:-translate-x-1"
-                    />
-                    <span className="font-sans leading-none">Back</span>
-                </Button>
-            ) : (
-                <Image
-                    src="/images/logo.webp"
-                    alt="Sanvia Logo"
-                    height={40}
-                    width={90}
-                    onClick={handleLogoClick}
-                    priority
-                    fetchPriority="high"
-                    className="my-auto cursor-pointer select-none rounded-md pr-1 md:pr-0"
-                />
-            )}
+            <Image
+                src="/images/logo.webp"
+                alt="Sanvia Logo"
+                height={40}
+                width={90}
+                onClick={handleLogoClick}
+                priority
+                fetchPriority="high"
+                className="my-auto cursor-pointer select-none rounded-md pr-1 md:pr-0"
+            />
 
             <form
                 onSubmit={handleFormSubmit}
@@ -113,17 +97,24 @@ export default function Header({
                     placeholder="Search music (Ctrl + M)"
                     value={inputValue}
                     onChange={(e) => onInputChange(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.currentTarget.blur();
+                        }
+                    }}
                     title="Search music (Ctrl + M)"
                     disabled={isBlocked}
                     autoComplete="off"
                     aria-label="Search query"
-                    className="h-9 md:h-10 select-none rounded-l-xl border-none font-display font-medium text-white focus-visible:ring-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-9 md:h-10 flex-1 select-none rounded-l-xl border-none bg-transparent font-display font-medium text-white focus-visible:ring-transparent disabled:cursor-not-allowed disabled:opacity-50"
                 />
 
                 <Button
                     type="submit"
                     disabled={isBlocked}
-                    className="group h-9 md:h-10 rounded-none rounded-r-xl bg-transparent hover:bg-transparent cursor-pointer"
+                    className="group h-9 md:h-10 shrink-0 cursor-pointer rounded-none rounded-r-xl bg-transparent px-3 hover:bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 >
                     <FontAwesomeIcon
                         icon={faMagnifyingGlass}

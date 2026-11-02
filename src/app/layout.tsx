@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from 'geist/font/sans';
 import "./globals.css";
+import KeyboardShortcuts from "./components/Modals/KeyboardShortcuts";
+import GlobalContextMenuGuard from "./components/layout/GlobalContextMenuGuard";
 
 export const metadata: Metadata = {
   title: {
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Sanvia - Personal Music Companion",
     description: "Stream, search, and vibe to your favorite songs.",
-    url: "https://sanvia-wimo.onrender.com/",
+    url: "https://sanvia-nine.vercel.app/",
     siteName: "Sanvia",
     images: [
       {
@@ -55,6 +57,8 @@ export default function RootLayout({
       </head>
 
       <body className="antialiased bg-zinc-950 text-white">
+        <KeyboardShortcuts />
+        <GlobalContextMenuGuard />
         {children}
       </body>
     </html>

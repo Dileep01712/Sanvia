@@ -563,13 +563,14 @@ export async function downloadSong(
     streamingUrl: string,
     songTitle: string,
     primaryArtists: string,
-    onProgress: (percentage: number) => void
+    onProgress: (percentage: number) => void,
+    signal?: AbortSignal,
 ): Promise<void> {
     if (!streamingUrl) {
         throw new Error("No streaming URL provided");
     }
 
-    const endpoint = "/api/download-song"
+    const endpoint = "/api/download-song";
     const payload = { streamingUrl, songTitle, primaryArtists };
 
     try {
@@ -578,6 +579,7 @@ export async function downloadSong(
             cache: "no-cache",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
+            signal,
         });
 
         if (!response.ok) {
@@ -589,7 +591,7 @@ export async function downloadSong(
             throw new Error("Response body is empty (no stream)");
         }
 
-        const contentLengthHeader = response.headers.get('Content-Length');
+        const contentLengthHeader = response.headers.get("Content-Length");
         const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
 
         const reader = response.body.getReader();
@@ -597,6 +599,11 @@ export async function downloadSong(
         let receivedBytes = 0;
 
         while (true) {
+            if (signal?.aborted) {
+                await reader.cancel();
+                throw new DOMException("Download cancelled by user", "AbortError");
+            }
+
             const { done, value } = await reader.read();
             if (done) break;
 
@@ -615,7 +622,11 @@ export async function downloadSong(
             }
         }
 
-        const blob = new Blob(chunks.map(chunk => new Uint8Array(chunk)), { type: 'audio/mpeg' });
+        if (signal?.aborted) {
+            throw new DOMException("Download cancelled by user", "AbortError");
+        }
+
+        const blob = new Blob(chunks.map(chunk => new Uint8Array(chunk)), { type: "audio/mpeg" });
         const objectUrl = window.URL.createObjectURL(blob);
 
         const decodedTitle = decodeHTMLEntities(songTitle);
@@ -647,13 +658,18 @@ export async function downloadSong(
         }
 
         setTimeout(() => {
-            window.URL.revokeObjectURL(objectUrl)
+            window.URL.revokeObjectURL(objectUrl);
         }, 1500);
 
         onProgress(100);
 
     } catch (error) {
         onProgress(0);
+
+        if (error instanceof Error && error.name === "AbortError") {
+            throw error;
+        }
+
         const message = error instanceof Error ? error.message : "Unknown download error";
         throw new Error(`Download failed: ${message}`);
     }

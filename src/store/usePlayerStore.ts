@@ -8,6 +8,7 @@ export type ModalItem = Song | Album | Artist;
 
 const SOURCE_ORDER: PlaybackSource[] = ["queued", "album", "artist", "recommended", "homeFeed"];
 const DYNAMIC_SOURCES: PlaybackSource[] = ['album', 'artist', 'recommended'];
+export const QUEUE_LIMIT = 200;
 
 const findValidIndex = (
     songs: Song[],
@@ -43,7 +44,20 @@ interface PlayerStore {
     isShuffle: boolean;
     shuffleDeck: number[];
     currentSong: Song | null;
-    history: { song: Song; source: PlaybackSource; index: number }[];
+    history: {
+        song: Song;
+        source: PlaybackSource;
+        index: number;
+        indices?: Record<PlaybackSource, number>;
+        shuffleDeck?: number[];
+    }[];
+    backStack: {
+        song: Song;
+        source: PlaybackSource;
+        index: number;
+        indices?: Record<PlaybackSource, number>;
+        shuffleDeck?: number[];
+    }[];
 
     queuedSongs: Song[];
     recommendedSongs: Song[];
@@ -83,6 +97,9 @@ interface PlayerStore {
     setAlbumSongs: (songs: Song[]) => void;
     setRecommendedSongs: (songs: Song[]) => void;
     setQueuedSongs: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
+    addToQueue: (song: Song) => void;
+    removeFromQueue: (id: string) => void;
+    playNext: (song: Song) => void;
 
     play: (source: PlaybackSource, index: number) => void;
     next: () => void;
@@ -108,6 +125,7 @@ export const usePlayerStore = create<PlayerStore>()(
             shuffleDeck: [],
             currentSong: null,
             history: [],
+            backStack: [],
 
             queuedSongs: [],
             recommendedSongs: [],
@@ -179,17 +197,45 @@ export const usePlayerStore = create<PlayerStore>()(
             }),
 
             setHomeFeed: (feed) => set({ homeFeed: feed }),
+
             setAlbumSongs: (songs) => set((state) => ({
                 albumSongs: songs,
                 indices: { ...state.indices, album: -1 }
             })),
+
             setRecommendedSongs: (songs) => set((state) => ({
                 recommendedSongs: songs,
                 indices: { ...state.indices, recommended: -1, artist: -1 }
             })),
+
             setQueuedSongs: (updater) => set((state) => ({
                 queuedSongs: typeof updater === 'function' ? updater(state.queuedSongs) : updater
             })),
+
+            addToQueue: (song) => set((state) => {
+                if (state.queuedSongs.length >= QUEUE_LIMIT) return state;
+                if (!song.downloadUrl || song.type === 'album') return state;
+                if (state.currentSong?.id === song.id) return state;
+                if (state.queuedSongs.some((s) => s.id === song.id)) return state;
+                return { queuedSongs: [...state.queuedSongs, song] };
+            }),
+
+            removeFromQueue: (id) => set((state) => ({
+                queuedSongs: state.queuedSongs.filter((s) => s.id !== id),
+            })),
+
+            playNext: (song) => set((state) => {
+                if (!song.downloadUrl || song.type === 'album') return state;
+                if (state.currentSong?.id === song.id) return state;
+
+                const rest = state.queuedSongs.filter((s) => s.id !== song.id);
+                const first = rest[0];
+                const insertAt = first && first.id === state.currentSong?.id ? 1 : 0;
+
+                return {
+                    queuedSongs: [...rest.slice(0, insertAt), song, ...rest.slice(insertAt)],
+                };
+            }),
 
             play: (source, index) => set((state) => {
                 const sourceMap = {
@@ -219,7 +265,13 @@ export const usePlayerStore = create<PlayerStore>()(
 
                 const songToPlay = songs[safeIndex] || null;
                 const historyItem = state.currentSong && state.currentSong.type !== 'album'
-                    ? { song: state.currentSong, source: state.activeSource, index: state.indices[state.activeSource] }
+                    ? {
+                        song: state.currentSong,
+                        source: state.activeSource,
+                        index: state.indices[state.activeSource],
+                        indices: state.indices,
+                        shuffleDeck: state.shuffleDeck
+                    }
                     : null;
                 const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
 
@@ -230,6 +282,7 @@ export const usePlayerStore = create<PlayerStore>()(
                     shuffleDeck: newDeck,
                     selectedItem: isArtistContext ? state.selectedItem : songToPlay,
                     history: historyItem ? [...state.history, historyItem].slice(-50) : state.history,
+                    backStack: historyItem ? [...state.backStack, historyItem].slice(-50) : state.backStack,
                 };
             }),
 
@@ -251,12 +304,19 @@ export const usePlayerStore = create<PlayerStore>()(
                     };
 
                     const historyItem = prev.currentSong && prev.currentSong.type !== 'album'
-                        ? { song: prev.currentSong, source: prev.activeSource, index: prev.indices[prev.activeSource] }
+                        ? {
+                            song: prev.currentSong,
+                            source: prev.activeSource,
+                            index: prev.indices[prev.activeSource],
+                            indices: prev.indices,
+                            shuffleDeck: prev.shuffleDeck
+                        }
                         : null;
                     const newHistory = historyItem ? [...prev.history, historyItem].slice(-50) : prev.history;
+                    const newBackStack = historyItem ? [...prev.backStack, historyItem].slice(-50) : prev.backStack;
 
                     const skippedIds = new Set(
-                        newHistory
+                        newBackStack
                             .filter((h) => h.source === 'queued')
                             .map((h) => h.song.id)
                     );
@@ -269,20 +329,16 @@ export const usePlayerStore = create<PlayerStore>()(
                         currentSong: song,
                         selectedItem: isArtistContext ? state.selectedItem : song,
                         history: newHistory,
+                        backStack: newBackStack,
                         ...(newDeck !== undefined ? { shuffleDeck: newDeck } : {})
                     });
 
                     if (prev.queuedSongs.length > 0) {
-                        if (prev.activeSource === 'queued') {
-                            const nextIdx = findValidIndex(prev.queuedSongs, prev.indices['queued'], 1);
-                            if (nextIdx >= 0 && nextIdx < prev.queuedSongs.length) {
-                                return commitNext('queued', 0, prev.queuedSongs[nextIdx]);
-                            }
-                        } else {
-                            const validIdx = findValidIndex(prev.queuedSongs, -1, 1);
-                            if (validIdx >= 0 && validIdx < prev.queuedSongs.length) {
-                                return commitNext('queued', validIdx, prev.queuedSongs[validIdx]);
-                            }
+                        const nextIdx = prev.queuedSongs.findIndex(
+                            (s) => !!s.downloadUrl && s.id !== prev.currentSong?.id
+                        );
+                        if (nextIdx !== -1) {
+                            return commitNext('queued', nextIdx, prev.queuedSongs[nextIdx]);
                         }
                     }
 
@@ -358,20 +414,33 @@ export const usePlayerStore = create<PlayerStore>()(
 
             previous: () => {
                 const state = get();
-                if (state.history.length === 0) return;
+                if (state.backStack.length === 0) return;
 
                 set((prev) => {
-                    const newHistory = [...prev.history];
-                    const lastPlayed = newHistory.pop()!;
+                    const newBackStack = [...prev.backStack];
+                    const lastPlayed = newBackStack.pop()!;
 
                     const isArtistContext = state.selectedItem && "follower_count" in state.selectedItem;
 
+                    const currentHistoryItem = prev.currentSong && prev.currentSong.type !== 'album'
+                        ? {
+                            song: prev.currentSong,
+                            source: prev.activeSource,
+                            index: prev.indices[prev.activeSource],
+                            indices: prev.indices,
+                            shuffleDeck: prev.shuffleDeck
+                        }
+                        : null;
+                    const newHistory = currentHistoryItem ? [...prev.history, currentHistoryItem].slice(-50) : prev.history;
+
                     return {
                         activeSource: lastPlayed.source,
-                        indices: { ...prev.indices, [lastPlayed.source]: lastPlayed.index },
+                        indices: lastPlayed.indices ?? { ...prev.indices, [lastPlayed.source]: lastPlayed.index },
+                        ...(lastPlayed.shuffleDeck ? { shuffleDeck: lastPlayed.shuffleDeck } : {}),
                         currentSong: lastPlayed.song,
                         selectedItem: isArtistContext ? state.selectedItem : lastPlayed.song,
                         history: newHistory,
+                        backStack: newBackStack,
                     };
                 });
             },
@@ -402,7 +471,13 @@ export const usePlayerStore = create<PlayerStore>()(
 
             resetPlayback: () => set((state) => {
                 const historyItem = state.currentSong && state.currentSong.type !== 'album'
-                    ? { song: state.currentSong, source: state.activeSource, index: state.indices[state.activeSource] }
+                    ? {
+                        song: state.currentSong,
+                        source: state.activeSource,
+                        index: state.indices[state.activeSource],
+                        indices: state.indices,
+                        shuffleDeck: state.shuffleDeck
+                    }
                     : null;
                 return {
                     activeSource: "homeFeed",
@@ -410,12 +485,14 @@ export const usePlayerStore = create<PlayerStore>()(
                     isShuffle: false,
                     currentSong: null,
                     history: historyItem ? [...state.history, historyItem].slice(-50) : state.history,
+                    backStack: historyItem ? [...state.backStack, historyItem].slice(-50) : state.backStack,
                     albumSongs: [],
                     recommendedSongs: [],
                     contextId: null,
                 };
             }),
         }),
+
         {
             name: 'sanvia-player-history',
             version: 0,
@@ -460,10 +537,15 @@ export const usePlayerStore = create<PlayerStore>()(
                     ? [...state.history, {
                         song: state.currentSong,
                         source: state.activeSource,
-                        index: state.indices[state.activeSource]
+                        index: state.indices[state.activeSource],
+                        indices: state.indices,
+                        shuffleDeck: state.shuffleDeck
                     }].slice(-50)
                     : state.history;
-                return { history: historyToSave };
+
+                return {
+                    history: historyToSave.map(({ song, source, index }) => ({ song, source, index }))
+                };
             },
         }
     )

@@ -4,6 +4,8 @@ import SongCard from "@/app/components/Home/ui/SongCard";
 import { Button } from "@/components/ui/button";
 import { Artist, Song } from "@/lib/songTypes";
 import { decodeHTMLEntities } from "@/lib/helpers";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 
 const PAGE_SIZE = 24;
 const MAX_VISIBLE_SKELETONS = PAGE_SIZE;
@@ -13,7 +15,7 @@ const SONG_SEARCH_FALLBACK_API = process.env.NEXT_PUBLIC_SONG_SEARCH_FALLBACK_AP
 
 const AnimatedEllipsis: React.FC = () => {
     return (
-        <span className="inline-flex gap-1 ml-1">
+        <span className="ml-1 inline-flex gap-1">
             {[0, 1, 2].map((i) => (
                 <span
                     key={i}
@@ -30,11 +32,13 @@ const AnimatedEllipsis: React.FC = () => {
 interface SearchResultsProps {
     query: string;
     onSongSelect: (song: Song, results: Song[]) => void;
+    onBackClick: () => void;
 }
 
 export default function SearchResults({
     query,
-    onSongSelect
+    onSongSelect,
+    onBackClick
 }: SearchResultsProps) {
     const [isSearchLoading, setIsSearchLoading] = useState(false);
     const sanitizedQuery = query.trim();
@@ -205,16 +209,33 @@ export default function SearchResults({
 
     if (!sanitizedQuery) {
         return (
-            <div className="w-full h-[60vh] flex flex-col items-center justify-center px-4 select-none animate-in fade-in duration-500">
-                <div className="h-24 w-24 rounded-full bg-white/5 flex items-center justify-center mb-6 border-2 border-white/50">
-                    <span className="text-6xl opacity-60 grayscale pb-2">🎧</span>
+            <div className="flex h-[60vh] w-full flex-col md:px-6">
+                <div className="mb-2 flex w-full items-center gap-3 pl-2 pt-2 md:my-5.5 md:gap-4 md:pt-0">
+                    <Button
+                        variant="ghost"
+                        onClick={onBackClick}
+                        aria-label="Go back"
+                        title="Back"
+                        className="group flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/5 p-0 text-white transition-all hover:bg-white/10 hover:text-white md:h-11 md:w-11"
+                    >
+                        <FontAwesomeIcon
+                            icon={faArrowLeft}
+                            className="transition-transform group-hover:-translate-x-1 md:text-lg"
+                        />
+                    </Button>
                 </div>
-                <h2 className="text-xl md:text-2xl font-display font-semibold text-white/90 mb-2 tracking-wide">
-                    Discover Your Vibe
-                </h2>
-                <p className="text-zinc-500 text-sm md:text-base text-center max-w-xs font-sans">
-                    Search for songs, artists, or albums to instantly start streaming.
-                </p>
+
+                <div className="animate-in fade-in flex flex-1 select-none flex-col items-center justify-center px-4 pb-12 duration-500">
+                    <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full border-2 border-white/50 bg-white/5">
+                        <span className="pb-2 text-6xl opacity-60 grayscale">🎧</span>
+                    </div>
+                    <h2 className="mb-2 font-display text-xl font-semibold tracking-wide text-white/90 md:text-2xl">
+                        Discover Your Vibe
+                    </h2>
+                    <p className="max-w-xs text-center font-sans text-sm text-zinc-500 md:text-base">
+                        Search for songs, artists, or albums to instantly start streaming.
+                    </p>
+                </div>
             </div>
         );
     }
@@ -223,11 +244,25 @@ export default function SearchResults({
 
     return (
         <div className="w-full md:px-6">
-            <h2 className="mb-2 w-full wrap-break-word pl-2 font-display text-2xl font-bold text-white select-none md:my-5.5 md:text-4xl">
-                {dynamicHeadingText}
-            </h2>
+            <div className="mb-2 flex w-full items-center gap-3 pl-2 md:my-5.5 md:gap-4">
+                <Button
+                    variant="ghost"
+                    onClick={onBackClick}
+                    aria-label="Go back"
+                    title="Back"
+                    className="group flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white/5 p-0 text-white transition-all hover:bg-white/10 hover:text-white md:h-11 md:w-11"
+                >
+                    <FontAwesomeIcon
+                        icon={faArrowLeft}
+                        className="transition-transform group-hover:-translate-x-1 md:text-lg"
+                    />
+                </Button>
+                <h2 className="flex-1 wrap-break-word font-display text-2xl font-bold text-white select-none md:text-4xl">
+                    {dynamicHeadingText}
+                </h2>
+            </div>
 
-            <div className={`grid w-full grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 p-2 gap-4 md:gap-6 lg:gap-10 
+            <div className={`grid w-full grid-cols-2 gap-4 p-2 min-[480px]:grid-cols-3 md:grid-cols-4 md:gap-5 xl:grid-cols-6 xl:gap-6 
                 ${results.length > 0 ? "" : "mb-20"}
             `}>
                 {showInitialLoading ? (

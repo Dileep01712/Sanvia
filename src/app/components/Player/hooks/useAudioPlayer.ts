@@ -3,7 +3,7 @@ import { Song } from "@/lib/songTypes";
 import { getStreamingUrl } from "@/lib/getStreamingUrl";
 import { getBestQualityDownload } from "@/lib/helpers";
 
-const VOLUME_STORAGE_KEY = "audioPlayerVolume";
+const LEGACY_VOLUME_KEY = "audioPlayerVolume";
 const MUTE_STORAGE_KEY = "audioPlayerMuted";
 
 export function useAudioPlayer(
@@ -11,17 +11,6 @@ export function useAudioPlayer(
     isImageLoaded: boolean,
     onSongEnd?: () => void,
 ) {
-    const [volume, setVolume] = useState(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem(VOLUME_STORAGE_KEY);
-            if (saved !== null) {
-                const parsed = parseFloat(saved);
-                if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) return parsed;
-            }
-        }
-        return 1;
-    });
-
     const [isMuted, setIsMuted] = useState(() => {
         if (typeof window !== "undefined") {
             return localStorage.getItem(MUTE_STORAGE_KEY) === "true";
@@ -41,12 +30,12 @@ export function useAudioPlayer(
     const [bufferedPercent, setBufferedPercent] = useState(0);
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const previousVolumeRef = useRef(volume);
     const onSongEndRef = useRef(onSongEnd);
     const currentSongRef = useRef(currentSong);
     const hasEverPlayedRef = useRef(false);
     const isLoadedRef = useRef(false);
-    const effectiveVolumeRef = useRef(isMuted ? 0 : volume);
+    const effectiveVolumeRef = useRef(isMuted ? 0 : 1);
+    const fadeScaleRef = useRef(1);
     const autoPlayNextRef = useRef(false);
     const isNewSrcLoadingRef = useRef(false);
 
@@ -66,18 +55,21 @@ export function useAudioPlayer(
         currentSongRef.current = currentSong;
     }, [currentSong]);
 
-    useEffect(() => {
-        effectiveVolumeRef.current = isMuted ? 0 : volume;
-    }, [volume, isMuted]);
+    const applyVolume = useCallback((el: HTMLAudioElement | null = audioRef.current) => {
+        if (el) el.volume = effectiveVolumeRef.current * fadeScaleRef.current;
+    }, []);
+
+    const setFadeScale = useCallback((scale: number) => {
+        fadeScaleRef.current = Math.min(1, Math.max(0, scale));
+        applyVolume();
+    }, [applyVolume]);
 
     const setAudioRef = useCallback((el: HTMLAudioElement | null) => {
         if (audioRef.current === el) return;
         audioRef.current = el;
         setAudioElement(el);
-        if (el) {
-            el.volume = effectiveVolumeRef.current;
-        }
-    }, []);
+        if (el) applyVolume(el);
+    }, [applyVolume]);
 
     useEffect(() => {
         if (!currentSong || !isImageLoaded) {
@@ -119,7 +111,7 @@ export function useAudioPlayer(
                 setIsLoading(true);
                 audio.src = url;
                 audio.load();
-                audio.volume = effectiveVolumeRef.current;
+                applyVolume(audio);
             }
             return;
         }
@@ -146,7 +138,7 @@ export function useAudioPlayer(
                         setIsLoading(true);
                         audioEl.src = url;
                         audioEl.load();
-                        audioEl.volume = effectiveVolumeRef.current;
+                        applyVolume(audioEl);
                     }
                 }
             } catch (err) {
@@ -306,20 +298,17 @@ export function useAudioPlayer(
     }, [audioElement, isRepeat]);
 
     useEffect(() => {
-        const audio = audioRef.current;
-        if (audio) {
-            audio.volume = isMuted ? 0 : volume;
-        }
+        effectiveVolumeRef.current = isMuted ? 0 : 1;
+        applyVolume();
 
         if (typeof window !== "undefined") {
-            localStorage.setItem(VOLUME_STORAGE_KEY, volume.toString());
             localStorage.setItem(MUTE_STORAGE_KEY, isMuted.toString());
         }
+    }, [isMuted, applyVolume]);
 
-        if (volume !== 0) {
-            previousVolumeRef.current = volume;
-        }
-    }, [volume, isMuted]);
+    useEffect(() => {
+        localStorage.removeItem(LEGACY_VOLUME_KEY);
+    }, []);
 
     const togglePlay = useCallback(() => {
         const audio = audioRef.current;
@@ -339,26 +328,26 @@ export function useAudioPlayer(
         }
     }, [duration]);
 
-    const setVolumeLevel = useCallback((level: number) => {
-        const newVol = Math.min(1, Math.max(0, level));
-        setVolume(newVol);
-        if (newVol === 0) {
-            setIsMuted(true);
-        } else {
-            setIsMuted(false);
-        }
+    const seekBySeconds = useCallback((delta: number) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        const dur = audio.duration;
+        if (!Number.isFinite(dur) || dur <= 0) return;
+
+        const SAFETY_MARGIN = 0.5;
+        const target = Math.min(
+            Math.max(0, audio.currentTime + delta),
+            Math.max(0, dur - SAFETY_MARGIN)
+        );
+
+        audio.currentTime = target;
+        setCurrentTime(target);
     }, []);
 
     const toggleMute = useCallback(() => {
-        if (isMuted || volume === 0) {
-            setVolume(previousVolumeRef.current || 0.5);
-            setIsMuted(false);
-        } else {
-            previousVolumeRef.current = volume;
-            setVolume(0);
-            setIsMuted(true);
-        }
-    }, [isMuted, volume]);
+        setIsMuted((prev) => !prev);
+    }, []);
 
     return {
         audioRef: setAudioRef,
@@ -368,14 +357,14 @@ export function useAudioPlayer(
         isPlaying,
         duration,
         currentTime,
-        volume,
         isMuted,
         isRepeat,
         isLoading,
         bufferedPercent,
         togglePlay,
         seek,
-        setVolumeLevel,
+        seekBySeconds,
+        setFadeScale,
         toggleMute,
         setIsRepeat,
     };

@@ -8,7 +8,10 @@ import { useQueue } from "./hooks/useQueue";
 import { useMediaSession } from "./hooks/useMediaSession";
 import { useDownload } from "./hooks/useDownload";
 import ProgressBar from "./components/ProgressBar";
-import VolumeControl from "./components/VolumeControl";
+import SleepTimer from "./components/SleepTimer";
+import { useSleepTimer } from "./hooks/useSleepTimer";
+import SeekIndicator from "./components/SeekIndicator";
+import { useSeekIndicator } from "./hooks/useSeekIndicator";
 import PlayerControls from "./components/PlayerControls";
 import PlayerHeader from "./components/PlayerHeader";
 import QueueList from "../Queue/QueueList";
@@ -49,6 +52,8 @@ export default function PlayerView() {
     const activeSource = usePlayerStore((state) => state.activeSource);
     const play = usePlayerStore((state) => state.play);
     const next = usePlayerStore((state) => state.next);
+    const previous = usePlayerStore((state) => state.previous);
+    const toggleShuffle = usePlayerStore((state) => state.toggleShuffle);
     const resetPlayback = usePlayerStore((state) => state.resetPlayback);
     const setIsExpanded = usePlayerStore((state) => state.setIsExpanded);
     const closeModal = usePlayerStore((state) => state.closeModal);
@@ -56,13 +61,19 @@ export default function PlayerView() {
     const fetchedRecSongs = usePlayerStore((state) => state.recommendedSongs);
 
     const { queuedSongs, setQueuedSongs, addToQueue } = useQueue();
-    const { isDownloading, downloadProgress, triggerDownload } = useDownload();
+    const { isDownloading, downloadProgress, triggerDownload, cancelDownload } = useDownload(rawCurrentSong?.id || "");
 
     const [activeTab, setActiveTab] = useState<"player" | "queue" | "related">("player");
     const [isImageLoaded, setIsImageLoaded] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [isSongViewForced, setIsSongViewForced] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
+    const { seek: seekState, showSeek } = useSeekIndicator();
+    const tapCountRef = useRef(0);
+    const tapTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const lastTapSideRef = useRef<"left" | "right" | null>(null);
+    const [allowTapSeek, setAllowTapSeek] = useState(false);
+
     const isArtistView = isArtist(selectedItem) && !isSongViewForced;
 
     const isProcessingNext = useRef(false);
@@ -105,19 +116,28 @@ export default function PlayerView() {
         isPlaying,
         duration,
         currentTime,
-        volume,
+        setFadeScale,
         isMuted,
         isRepeat,
         isLoading,
         bufferedPercent,
         togglePlay,
         seek,
-        setVolumeLevel,
+        seekBySeconds,
         toggleMute,
         setIsRepeat,
     } = audio;
 
     useMediaSession(currentSong);
+
+    const sleep = useSleepTimer(
+        internalAudioRef,
+        () => {
+            const el = internalAudioRef.current;
+            if (el && !el.paused) togglePlay();
+        },
+        setFadeScale
+    );
 
     const currentArtist = isArtistView ? (selectedItem as Artist) : null;
     const fallbackImage = isArtistView ? getBestQualityImage(currentArtist?.image) : currentSong?.image || "";
@@ -141,7 +161,20 @@ export default function PlayerView() {
         return () => {
             document.title = "Sanvia - Personal Music Companion";
         };
-    }, [title, subtitle, isPlaying, isModalOpen]);
+    }, [title, subtitle, isModalOpen]);
+
+    useEffect(() => {
+        const updateTapSeekEligibility = () => {
+            const isDesktopSetup = window.innerWidth >= 1024 && window.matchMedia("(pointer: fine)").matches;
+            setAllowTapSeek(!isDesktopSetup);
+        };
+
+        updateTapSeekEligibility();
+        window.addEventListener("resize", updateTapSeekEligibility);
+        return () => window.removeEventListener("resize", updateTapSeekEligibility);
+    }, []);
+
+    const isArtworkTapEnabled = isExpanded && !isArtistView && allowTapSeek;
 
     useEffect(() => {
         const downloadUrl = getBestQualityDownload(currentSong?.downloadUrl);
@@ -187,12 +220,16 @@ export default function PlayerView() {
 
     const handleClose = useCallback((e?: React.SyntheticEvent | KeyboardEvent) => {
         if (e) e.preventDefault();
-        const audio = internalAudioRef.current;
-        if (audio) {
-            audio.pause();
-            audio.currentTime = 0;
-            audio.removeAttribute("src");
-            audio.load();
+
+        sleep.cancel();
+        cancelDownload?.();
+
+        const el = internalAudioRef.current;
+        if (el) {
+            el.pause();
+            el.currentTime = 0;
+            el.removeAttribute("src");
+            el.load();
         }
 
         resetPlayback();
@@ -210,7 +247,7 @@ export default function PlayerView() {
             navigator.mediaSession.setActionHandler("play", null);
             navigator.mediaSession.setActionHandler("pause", null);
         }
-    }, [closeModal, setIsExpanded, resetPlayback, resetRecommendations, setQueuedSongs]);
+    }, [closeModal, setIsExpanded, resetPlayback, resetRecommendations, setQueuedSongs, sleep, cancelDownload]);
 
     useEffect(() => {
         if (isModalOpen && isExpanded) {
@@ -219,24 +256,6 @@ export default function PlayerView() {
             return () => { document.body.style.overflow = originalOverflow; };
         }
     }, [isModalOpen, isExpanded]);
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (window.innerWidth < 1024) return;
-            if (e.ctrlKey && e.key === "ArrowUp") {
-                e.preventDefault();
-                setIsExpanded(true);
-            } else if (e.ctrlKey && e.key === "ArrowDown") {
-                e.preventDefault();
-                setIsExpanded(false);
-            } else if (e.ctrlKey && e.key.toLowerCase() === "x") {
-                e.preventDefault();
-                handleClose(e);
-            }
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [setIsExpanded, handleClose]);
 
     const handleQueueSongSelect = useCallback((song: Song) => {
         const idx = queuedSongs.findIndex(s => s.id === song.id);
@@ -272,16 +291,15 @@ export default function PlayerView() {
     }, [queuedSongs.length, activeTab]);
 
     const handleNext = useCallback(() => {
-        if (loading || isProcessingNext.current) {
-            return;
-        }
+        if (loading || isProcessingNext.current) return;
 
         isProcessingNext.current = true;
-        next();
 
-        setTimeout(() => {
-            isProcessingNext.current = false;
-        }, 300);
+        try {
+            next();
+        } finally {
+            setTimeout(() => { isProcessingNext.current = false; }, 300);
+        }
     }, [next, loading]);
 
     const artistIndex = topArtists.findIndex(a => a.id === currentArtist?.id);
@@ -306,11 +324,120 @@ export default function PlayerView() {
         triggerDownload(streamingUrl, currentSong?.name, currentSong?.primaryArtists);
     }, [triggerDownload, streamingUrl, currentSong]);
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+            const isBareKey = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+
+            if (e.ctrlKey && e.key === "ArrowUp") {
+                e.preventDefault();
+                setIsExpanded(true);
+            } else if (e.ctrlKey && e.key === "ArrowDown") {
+                e.preventDefault();
+                setIsExpanded(false);
+            } else if (e.ctrlKey && e.key.toLowerCase() === "x") {
+                e.preventDefault();
+                handleClose(e);
+            }
+
+            else if (e.ctrlKey && e.key === "ArrowRight") {
+                e.preventDefault();
+                if (!e.repeat) handleNext();
+            } else if (e.ctrlKey && e.key === "ArrowLeft") {
+                e.preventDefault();
+                if (!e.repeat) previous();
+            }
+
+            else if (!e.ctrlKey && !e.shiftKey && e.key === "ArrowRight") {
+                e.preventDefault();
+                seekBySeconds(5);
+            } else if (!e.ctrlKey && !e.shiftKey && e.key === "ArrowLeft") {
+                e.preventDefault();
+                seekBySeconds(-5);
+            }
+
+            else if (e.code === "Space") {
+                e.preventDefault();
+                togglePlay();
+            }
+
+            else if (e.key.toLowerCase() === "r" && isBareKey) {
+                e.preventDefault();
+                toggleRepeat();
+            } else if (e.key.toLowerCase() === "s" && isBareKey) {
+                e.preventDefault();
+                toggleShuffle();
+            } else if (e.key.toLowerCase() === "m" && isBareKey) {
+                e.preventDefault();
+                toggleMute();
+            } else if (e.shiftKey && e.key.toLowerCase() === "d") {
+                e.preventDefault();
+                handleDownload();
+            } else if (e.shiftKey && e.key.toLowerCase() === "c") {
+                e.preventDefault();
+                if (cancelDownload) cancelDownload();
+            }
+
+            else if (e.shiftKey && e.key === "ArrowRight") {
+                e.preventDefault();
+                setActiveTab((prevTab) => {
+                    const tabs = (["player", "queue", "related"] as const).filter(t => t !== "queue" || queuedSongs.length > 0);
+                    const currIdx = tabs.indexOf(prevTab);
+                    return currIdx < tabs.length - 1 ? tabs[currIdx + 1] : prevTab;
+                });
+            } else if (e.shiftKey && e.key === "ArrowLeft") {
+                e.preventDefault();
+                setActiveTab((prevTab) => {
+                    const tabs = (["player", "queue", "related"] as const).filter(t => t !== "queue" || queuedSongs.length > 0);
+                    const currIdx = tabs.indexOf(prevTab);
+                    return currIdx > 0 ? tabs[currIdx - 1] : prevTab;
+                });
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [
+        setIsExpanded, handleClose, handleNext, previous,
+        togglePlay, toggleRepeat, toggleShuffle, toggleMute,
+        handleDownload, cancelDownload, queuedSongs.length,
+        seekBySeconds,
+    ]);
+
+    const handleArtworkClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        if (!internalAudioRef.current) return;
+
+        const { width, left } = e.currentTarget.getBoundingClientRect();
+        const tapPositionX = e.clientX - left;
+        const side = tapPositionX < width / 2 ? "left" : "right";
+
+        if (lastTapSideRef.current !== side) {
+            tapCountRef.current = 0;
+        }
+        lastTapSideRef.current = side;
+        tapCountRef.current += 1;
+
+        if (tapTimerRef.current) {
+            clearTimeout(tapTimerRef.current);
+        }
+
+        if (tapCountRef.current >= 2) {
+            seekBySeconds(side === "left" ? -5 : 5);
+            showSeek(side, 5);
+        }
+
+        tapTimerRef.current = setTimeout(() => {
+            tapCountRef.current = 0;
+            lastTapSideRef.current = null;
+        }, 600);
+    }, [seekBySeconds, showSeek]);
+
     if (!isModalOpen || !selectedItem) return null;
 
     return (
         <>
-            {/* Hidden audio element */}
             <audio
                 ref={assignAudioRef}
                 src={currentSong ? streamingUrl : ""}
@@ -318,7 +445,6 @@ export default function PlayerView() {
                 hidden
             />
 
-            {/* Backdrop */}
             <div
                 className={`fixed inset-0 z-40 transition-opacity 
                     ${isExpanded
@@ -328,11 +454,9 @@ export default function PlayerView() {
                 `}
             />
 
-            {/* Modal container */}
             <div className={`fixed inset-0 z-50 flex justify-center pointer-events-none
                 ${isExpanded ? "items-center px-2" : "items-end"}
             `}>
-                {/* Main modal box */}
                 <div
                     onClick={(e) => e.stopPropagation()}
                     className={`pointer-events-auto flex flex-col z-50 ease-in-out overflow-hidden mx-auto
@@ -348,12 +472,10 @@ export default function PlayerView() {
                         }}
                     />
 
-                    {/* -------- HEADER SECTION -------- */}
                     <div className={`z-10 ${isExpanded ? "flex shrink-0 h-10 items-center" : ""}`}>
                         <PlayerHeader onToggleExpand={() => setIsExpanded(!isExpanded)} onClose={handleClose} />
                     </div>
 
-                    {/* -------- MIDDLE SECTION -------- */}
                     <div className="relative flex-1 flex flex-col overflow-hidden">
                         {!isExpanded && !isArtistView && (
                             <div className="absolute top-[-0.5px] inset-x-0 z-50 w-full drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
@@ -366,7 +488,6 @@ export default function PlayerView() {
                             </div>
                         )}
 
-                        {/* Active Page Content */}
                         <div className={`flex-1 flex flex-col ${isExpanded ? "overflow-y-auto scrollbar-hide [@media(max-height:600px)]:pb-6" : ""}`}>
                             {activeTab === "player" && (
                                 <div className={`flex flex-1 flex-col 
@@ -375,17 +496,21 @@ export default function PlayerView() {
                                         : "w-full justify-center px-2 md:px-4"
                                     }
                                 `}>
-                                    {/* ---- Image & Text row ---- */}
                                     <div className={`flex items-center 
                                         ${isExpanded
                                             ? "flex-col"
                                             : "w-full justify-between gap-2 md:gap-4 my-auto pr-10 md:pr-12"
                                         }
                                     `}>
-                                        <div className={`select-none relative my-1.5 shrink-0 overflow-hidden
+                                        <div
+                                            className={`select-none relative my-1.25 shrink-0 overflow-hidden [-webkit-touch-callout:none]
                                                 ${isExpanded ? "w-80 h-80 md:w-100 md:h-100" : "w-16.25 h-16.25"}
+                                                ${isArtworkTapEnabled ? "cursor-pointer" : ""}
                                                 ${isArtistView ? "rounded-full" : (isExpanded ? "rounded-3xl" : "rounded-md")}
-                                        `}>
+                                            `}
+                                            onClick={isArtworkTapEnabled ? handleArtworkClick : undefined}
+                                            style={{ touchAction: isArtworkTapEnabled ? "manipulation" : "auto" }}
+                                        >
 
                                             {(!isImageLoaded || imageError || !image) && (
                                                 <div className={`absolute inset-0 bg-white/5 animate-pulse z-0
@@ -404,6 +529,7 @@ export default function PlayerView() {
                                                     fetchPriority="high"
                                                     unoptimized={true}
                                                     quality={100}
+                                                    draggable={false}
                                                     onLoad={() => {
                                                         setIsImageLoaded(true);
                                                         setImageError(false);
@@ -421,9 +547,10 @@ export default function PlayerView() {
                                                     `}
                                                 />
                                             )}
+
+                                            <SeekIndicator seek={seekState} />
                                         </div>
 
-                                        {/* Title & Subtitle */}
                                         <div className={`flex-1 min-w-0 text-center flex flex-col items-center justify-center
                                             ${isExpanded ? "w-full" : ""}
                                         `}>
@@ -479,13 +606,12 @@ export default function PlayerView() {
                                             )}
                                         </div>
 
-                                        {/* Mini controls (only when collapsed) */}
                                         {!isExpanded && !isArtistView && (
                                             <>
                                                 <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
                                                     <button
                                                         onClick={togglePlay}
-                                                        title={isLoading ? "Loading..." : isPlaying ? "Pause" : "Play"}
+                                                        title={isLoading ? "Loading..." : isPlaying ? "Pause (Space)" : "Play (Space)"}
                                                         className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 shadow-[0_0_15px_rgba(255,255,255,0.3)] transform-gpu cursor-pointer"
                                                     >
                                                         <FontAwesomeIcon
@@ -497,7 +623,7 @@ export default function PlayerView() {
 
                                                     <button
                                                         onClick={handleNext}
-                                                        title="Next"
+                                                        title="Next (Ctrl + →)"
                                                         className="w-5 cursor-pointer text-white/90 hover:text-white transition-all duration-200 hover:translate-x-0.5"
                                                     >
                                                         <FontAwesomeIcon icon={faForwardStep} size="lg" />
@@ -506,7 +632,6 @@ export default function PlayerView() {
                                             </>
                                         )}
 
-                                        {/* Artist controls (only when collapsed) */}
                                         {!isExpanded && isArtistView && (
                                             <div className="flex items-center shrink-0">
                                                 <div className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-md border border-white/10 p-1 rounded-full shadow-sm">
@@ -540,7 +665,6 @@ export default function PlayerView() {
                                         )}
                                     </div>
 
-                                    {/* Full controls (only when expanded) */}
                                     {isExpanded && !isArtistView && (
                                         <div className="w-80 md:w-100">
                                             <div>
@@ -557,7 +681,6 @@ export default function PlayerView() {
                                             </div>
 
                                             <PlayerControls
-                                                volume={volume}
                                                 isMuted={isMuted}
                                                 isPlaying={isPlaying}
                                                 isRepeat={isRepeat}
@@ -569,20 +692,22 @@ export default function PlayerView() {
                                                 onToggleMute={toggleMute}
                                                 onToggleRepeat={toggleRepeat}
                                                 onDownloadRequest={handleDownload}
+                                                onCancelDownload={cancelDownload}
                                             />
 
-                                            <div className="flex justify-start">
-                                                <VolumeControl
-                                                    volume={volume}
-                                                    isMuted={isMuted}
-                                                    onVolumeChange={setVolumeLevel}
-                                                    onMuteToggle={toggleMute}
+                                            <div className="flex h-4 items-center justify-start">
+                                                <SleepTimer
+                                                    mode={sleep.mode}
+                                                    label={sleep.label}
+                                                    onStart={sleep.start}
+                                                    onStartAtSongEnd={sleep.startAtSongEnd}
+                                                    onExtend={sleep.extend}
+                                                    onCancel={sleep.cancel}
                                                 />
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Artist Navigation - Enclosed Control Dock */}
                                     {isArtistView && isExpanded && (
                                         <div className="flex justify-center items-center mt-2.5 select-none">
                                             <div className="inline-flex w-fit mx-auto gap-4 items-center bg-white/5 backdrop-blur-md border border-white/10 p-1.25 rounded-full shadow-sm">
@@ -594,7 +719,7 @@ export default function PlayerView() {
                                                     onClick={handlePreviousArtist}
                                                     className="group h-7 px-4 rounded-full bg-transparent hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 active:scale-95 cursor-pointer"
                                                 >
-                                                    <span className="font-display text-[10px] uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
+                                                    <span className="font-display text-xs uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
                                                         Prev
                                                     </span>
                                                 </Button>
@@ -608,7 +733,7 @@ export default function PlayerView() {
                                                     onClick={handleNextArtist}
                                                     className="group h-7 px-4 rounded-full bg-transparent hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 active:scale-95 cursor-pointer"
                                                 >
-                                                    <span className="font-display text-[10px] uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
+                                                    <span className="font-display text-xs uppercase tracking-[0.2em] font-bold text-white/70 transition-colors duration-200 group-hover:text-white">
                                                         Next
                                                     </span>
                                                 </Button>
@@ -623,7 +748,6 @@ export default function PlayerView() {
                                     queuedSongs={queuedSongs}
                                     onSongSelect={handleQueueSongSelect}
                                     setQueuedSongs={setQueuedSongs}
-
                                 />
                             )}
 
@@ -637,7 +761,6 @@ export default function PlayerView() {
                         </div>
                     </div>
 
-                    {/* -------- BOTTOM SECTION (page dots) -------- */}
                     {isExpanded && (
                         <div className="shrink-0 h-5.25 flex items-center justify-center gap-1 z-10">
                             {(["player", "queue", "related"] as const)

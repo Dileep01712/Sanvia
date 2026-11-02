@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
+    let body;
+
     try {
-        const body = await request.json();
+        body = await request.json();
+    } catch {
+        return NextResponse.json(
+            { error: 'Request aborted or invalid JSON payload.' },
+            { status: 400 }
+        );
+    }
+
+    try {
         const { streamingUrl, songTitle, primaryArtists } = body;
 
         if (!streamingUrl || !songTitle || !primaryArtists) {

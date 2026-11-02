@@ -1,5 +1,5 @@
 import { Song } from "@/lib/songTypes";
-import QueueItem from "./QueueItem";
+import QueueItem from "../QueueItem";
 
 interface QueueSwipeToAddProps {
     song: Song;

@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import QueueSwipeToAdd from "../../Queue/QueueSwipeToAdd";
+import QueueSwipeToAdd from "../../Queue/Swipe/QueueSwipeToAdd";
 import { Song } from "@/lib/songTypes";
 import SongListSkeleton from "./SongListSkeleton";
 import { usePlayerStore } from "@/store/usePlayerStore";

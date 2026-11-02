@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-const SANVIA_BASE_API = process.env.SANVIA_BASE_API_URL;
-
 export async function GET(request: Request, { params }: { params: { path: string[] } }) {
     try {
         const pathArray = params.path;
@@ -12,15 +10,25 @@ export async function GET(request: Request, { params }: { params: { path: string
         const queryString = searchParams.toString();
 
         let targetBaseUrl = "";
+
         if (service === "listenfree") {
-            targetBaseUrl = "https://backend.listenfree.in/api";
+            if (!process.env.LISTENFREE_API_URL) {
+                return new NextResponse("Listenfree API URL not configured", { status: 500 });
+            }
+            targetBaseUrl = process.env.LISTENFREE_API_URL;
+
         } else if (service === "saavn") {
-            targetBaseUrl = "https://saavn.sumit.co/api";
+            if (!process.env.SAAVN_API_URL) {
+                return new NextResponse("Saavn API URL not configured", { status: 500 });
+            }
+            targetBaseUrl = process.env.SAAVN_API_URL;
+
         } else if (service === "sanvia") {
-            if (!SANVIA_BASE_API) {
+            if (!process.env.SANVIA_BASE_API_URL) {
                 return new NextResponse("Sanvia base API not configured", { status: 500 });
             }
-            targetBaseUrl = SANVIA_BASE_API;
+            targetBaseUrl = process.env.SANVIA_BASE_API_URL;
+
         } else {
             return new NextResponse("Invalid service requested", { status: 400 });
         }

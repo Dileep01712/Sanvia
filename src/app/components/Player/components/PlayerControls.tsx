@@ -10,12 +10,12 @@ import {
     faShuffle,
     faDownload,
     faSpinner,
+    faXmark,
     faVolumeXmark,
     faVolumeHigh
 } from "@fortawesome/free-solid-svg-icons";
 
 interface PlayerControlsProps {
-    volume: number;
     isMuted: boolean;
     isPlaying: boolean;
     isRepeat: boolean;
@@ -27,10 +27,10 @@ interface PlayerControlsProps {
     onToggleMute: () => void;
     onToggleRepeat: () => void;
     onDownloadRequest?: () => void;
+    onCancelDownload?: () => void;
 }
 
 export default function PlayerControls({
-    volume,
     isMuted,
     isPlaying,
     isRepeat,
@@ -42,6 +42,7 @@ export default function PlayerControls({
     onToggleMute,
     onToggleRepeat,
     onDownloadRequest,
+    onCancelDownload,
 }: PlayerControlsProps) {
     const next = usePlayerStore((state) => state.next);
     const previous = usePlayerStore((state) => state.previous);
@@ -55,15 +56,15 @@ export default function PlayerControls({
     return (
         <div className="mx-auto flex w-full max-w-100 items-center justify-between">
             <FontAwesomeIcon
-                icon={isMuted || volume === 0 ? faVolumeXmark : faVolumeHigh}
+                icon={isMuted ? faVolumeXmark : faVolumeHigh}
                 onClick={onToggleMute}
-                title={isMuted || volume === 0 ? "Unmute" : "Mute"}
+                title={isMuted ? "Unmute (M)" : "Mute (M)"}
                 className={`${baseIconClass} ${isMuted ? activeIconClass : inactiveIconClass}`}
             />
 
             <button
                 onClick={onToggleRepeat}
-                title={isRepeat ? "Repeat Off" : "Repeat On"}
+                title={isRepeat ? "Repeat Off (R)" : "Repeat On (R)"}
                 className={`relative flex items-center justify-center ${baseIconClass} ${isRepeat ? activeIconClass : inactiveIconClass} cursor-pointer`}
             >
                 <FontAwesomeIcon icon={faRepeat} className="relative z-0" />
@@ -78,13 +79,13 @@ export default function PlayerControls({
             <FontAwesomeIcon
                 icon={faBackwardStep}
                 onClick={previous}
-                title="Previous"
+                title="Previous (Ctrl + ←)"
                 className={`${baseIconClass} ${inactiveIconClass} hover:-translate-x-0.5`}
             />
 
             <button
                 onClick={onTogglePlay}
-                title={isLoading ? "Loading..." : isPlaying ? "Pause" : "Play"}
+                title={isLoading ? "Loading..." : isPlaying ? "Pause (Space)" : "Play (Space)"}
                 className="flex h-12 w-12 transform-gpu cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-[0_0_18px_rgba(255,255,255,0.5)] transition-all duration-200 hover:scale-110 active:scale-95"
             >
                 <FontAwesomeIcon
@@ -98,27 +99,44 @@ export default function PlayerControls({
             <FontAwesomeIcon
                 icon={faForwardStep}
                 onClick={next}
-                title="Next"
+                title="Next (Ctrl + →)"
                 className={`${baseIconClass} ${inactiveIconClass} hover:translate-x-0.5`}
             />
 
             <FontAwesomeIcon
                 icon={faShuffle}
                 onClick={toggleShuffle}
-                title={isShuffle ? "Shuffle Off" : "Shuffle On"}
+                title={isShuffle ? "Shuffle Off (S)" : "Shuffle On (S)"}
                 className={`${baseIconClass} ${isShuffle ? activeIconClass : inactiveIconClass}`}
             />
 
-            <div className="relative flex items-center">
-                <FontAwesomeIcon
-                    icon={isDownloading ? faSpinner : faDownload}
-                    spin={isDownloading}
-                    onClick={!isDownloading ? onDownloadRequest : undefined}
-                    title={isDownloading ? "Downloading..." : "Download"}
-                    className={`${baseIconClass} ${isDownloading ? activeIconClass : inactiveIconClass} ${!streamingUrl ? "pointer-events-none" : ""}`}
-                />
+            <div className="relative flex items-center justify-center">
+                {isDownloading ? (
+                    <button
+                        type="button"
+                        onClick={onCancelDownload}
+                        title="Cancel download (Shift + C)"
+                        className={`group flex items-center justify-center ${baseIconClass} ${activeIconClass}`}
+                    >
+                        <span className="hidden md:flex md:items-center md:justify-center md:group-hover:hidden">
+                            <FontAwesomeIcon icon={faSpinner} spin />
+                        </span>
+
+                        <span className="flex items-center justify-center md:hidden md:group-hover:flex">
+                            <FontAwesomeIcon icon={faXmark} />
+                        </span>
+                    </button>
+                ) : (
+                    <FontAwesomeIcon
+                        icon={faDownload}
+                        onClick={onDownloadRequest}
+                        title="Download (Shift + D)"
+                        className={`${baseIconClass} ${inactiveIconClass} ${!streamingUrl ? "pointer-events-none" : ""}`}
+                    />
+                )}
+
                 {isDownloading && (
-                    <span className="absolute -bottom-6.5 left-1/2 -translate-x-1/2 select-none rounded bg-black/50 text-xs text-white">
+                    <span className="pointer-events-none absolute -bottom-6.5 left-1/2 -translate-x-1/2 select-none rounded bg-black/50 text-xs text-white">
                         {downloadProgress}%
                     </span>
                 )}

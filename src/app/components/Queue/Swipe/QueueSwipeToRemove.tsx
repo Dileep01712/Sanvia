@@ -1,11 +1,12 @@
 import { Song } from "@/lib/songTypes";
-import QueueItem from "./QueueItem";
+import QueueItem from "../QueueItem";
 
 interface QueueSwipeToRemoveProps {
     song: Song;
     isCurrentSong?: boolean;
     onClick: () => void;
     setQueuedSongs: React.Dispatch<React.SetStateAction<Song[]>>;
+    swipeDisabled?: boolean;
 }
 
 export default function QueueSwipeToRemove({
@@ -13,6 +14,7 @@ export default function QueueSwipeToRemove({
     isCurrentSong,
     onClick,
     setQueuedSongs,
+    swipeDisabled,
 }: QueueSwipeToRemoveProps) {
     const handleComplete = () => {
         setQueuedSongs((prev) => prev.filter((s) => s.id !== song.id));
@@ -25,6 +27,7 @@ export default function QueueSwipeToRemove({
             direction="right"
             onComplete={handleComplete}
             onClick={onClick}
+            swipeDisabled={swipeDisabled}
         />
     );
 }

@@ -30,8 +30,8 @@ export default function PlayerHeader({ onToggleExpand, onClose }: PlayerHeaderPr
             <Button
                 title={isLargeScreen
                     ? isExpanded
-                        ? "Collapse (Ctrl + Arrow Down)"
-                        : "Expand (Ctrl + Arrow Up)"
+                        ? "Collapse (Ctrl + ↓)"
+                        : "Expand (Ctrl + ↑)"
                     : isExpanded
                         ? "Collapse" : "Expand"
                 }

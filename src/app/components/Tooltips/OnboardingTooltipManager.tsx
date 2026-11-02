@@ -1,13 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { onboarding } from "@/lib/onboarding";
+import { onboarding, TooltipItem } from "@/lib/onboarding";
 import OnboardingTooltip from "./OnboardingTooltip";
-import { usePlayerStore } from "@/store/usePlayerStore";
-
-interface TooltipItem {
-    id: string;
-    message: string;
-    position: "top" | "center";
-}
 
 interface OnboardingTooltipManagerProps {
     id: string;
@@ -15,32 +8,65 @@ interface OnboardingTooltipManagerProps {
 
 const TOOLTIPS: TooltipItem[] = [
     {
+        id: "keyboard-shortcuts-tip",
+        message: "Press ? to view keyboard shortcuts.",
+        position: "center",
+        context: "global",
+        showArrow: false,
+    },
+    {
+        id: "card-more-options-tip",
+        message: "Long-press on any card for more options.",
+        position: "left",
+        context: "home",
+    },
+    {
         id: "toggle-sections-tip",
         message: "Tap the toggle to switch between views.",
-        position: "top"
+        position: "top",
+        context: "player",
     },
     {
         id: "swipe-to-queue-tip",
-        message: "Swipe left on any track to play it next.",
-        position: "center"
+        message: "Long-press on any track for more options.",
+        position: "center",
+        context: "player",
     },
     {
         id: "swipe-to-remove-tip",
         message: "Swipe right to remove a track from your queue.",
-        position: "center"
-    }
+        position: "center",
+        context: "player",
+    },
 ];
 
 export default function OnboardingTooltipManager({ id }: OnboardingTooltipManagerProps) {
     const [isVisible, setIsVisible] = useState(false);
-    const currentTip = TOOLTIPS.find(t => t.id === id);
+    const [isTouch, setIsTouch] = useState(false);
+    const currentTip = TOOLTIPS.find((t) => t.id === id);
 
-    const isExpanded = usePlayerStore((state) => state.isExpanded);
+    useEffect(() => {
+        setIsTouch(
+            window.matchMedia("(pointer: coarse)").matches ||
+            "ontouchstart" in window
+        );
+    }, []);
+
+    useEffect(() => {
+        if (!currentTip) return;
+        if (currentTip.id !== "keyboard-shortcuts-tip") return;
+        if (onboarding.hasSeenTooltip(currentTip.id)) return;
+
+        const isSmall = window.innerWidth < 1024;
+        if (isTouch || isSmall) {
+            onboarding.markTooltipAsSeen(currentTip.id);
+        }
+    }, [currentTip, isTouch]);
 
     const evaluateTooltipVisibility = useCallback(() => {
-        if (!currentTip || !isExpanded) {
+        if (!currentTip) {
             setIsVisible(false);
-            return
+            return;
         }
 
         if (onboarding.hasSeenTooltip(currentTip.id)) {
@@ -48,7 +74,11 @@ export default function OnboardingTooltipManager({ id }: OnboardingTooltipManage
             return;
         }
 
-        const nextUnseen = onboarding.getNextUnseen(TOOLTIPS);
+        const sameContext = TOOLTIPS.filter(
+            (t) => t.context === currentTip.context
+        );
+        const nextUnseen = onboarding.getNextUnseen(sameContext);
+
         if (nextUnseen?.id !== currentTip.id) {
             setIsVisible(false);
             return;
@@ -60,7 +90,7 @@ export default function OnboardingTooltipManager({ id }: OnboardingTooltipManage
         }
 
         setIsVisible(true);
-    }, [currentTip, isExpanded]);
+    }, [currentTip]);
 
     useEffect(() => {
         return () => {
@@ -76,7 +106,7 @@ export default function OnboardingTooltipManager({ id }: OnboardingTooltipManage
         return () => {
             window.removeEventListener("storage", handleStorageChange);
             window.removeEventListener("tooltip_update", handleStorageChange);
-        }
+        };
     }, [evaluateTooltipVisibility]);
 
     useEffect(() => {
@@ -88,17 +118,36 @@ export default function OnboardingTooltipManager({ id }: OnboardingTooltipManage
             onboarding.markTooltipAsSeen(currentTip.id);
             onboarding.releaseLock(currentTip.id);
         }
-
         setIsVisible(false);
     };
 
-    if (!isVisible || !currentTip || !isExpanded) return null;
+    const getDynamicMessage = (tipId: string, touchDevice: boolean) => {
+        if (tipId === "toggle-sections-tip") {
+            return touchDevice
+                ? "Tap the toggle to switch between views."
+                : "Click the toggle to switch between views.";
+        }
+        if (tipId === "swipe-to-queue-tip") {
+            return touchDevice
+                ? "Long-press on any track for more options."
+                : "Right-click on any track for more options.";
+        }
+        if (tipId === "card-more-options-tip") {
+            return touchDevice
+                ? "Long-press on any card for more options."
+                : "Right-click on any card for more options.";
+        }
+        return currentTip?.message || "";
+    };
+
+    if (!isVisible || !currentTip) return null;
 
     return (
         <OnboardingTooltip
             id={currentTip.id}
-            message={currentTip.message}
+            message={getDynamicMessage(currentTip.id, isTouch)}
             position={currentTip.position}
+            showArrow={currentTip.showArrow ?? true}
             onClose={handleClose}
         />
     );

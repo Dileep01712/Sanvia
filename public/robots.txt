@@ -1,9 +1,11 @@
 # *
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /_next/
 
 # Host
-Host: https://sanvia-wimo.onrender.com/
+Host: https://sanvia-nine.vercel.app
 
 # Sitemaps
-Sitemap: https://sanvia-wimo.onrender.com//sitemap.xml
+Sitemap: https://sanvia-nine.vercel.app/sitemap.xml
