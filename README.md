@@ -103,20 +103,24 @@ Sanvia is fully keyboard-driven on desktop.
 | Shortcut | Action |
 |----------|--------|
 | Space | Play / Pause |
-| Left Arrow / Right Arrow | Seek back / forward 5 seconds |
-| Ctrl + Left Arrow / Ctrl + Right Arrow | Previous / Next track |
+| Ctrl + Right Arrow | Next song |
+| Ctrl + Left Arrow | Previous song |
+| Right Arrow | Forward 5 seconds |
+| Left Arrow | Back 5 seconds |
+| R | Repeat |
+| S | Shuffle |
+| M | Mute / Unmute |
+| T | Sleep timer |
+| Shift + D | Download song |
+| Shift + C | Cancel download |
 | Ctrl + Up Arrow | Expand player |
 | Ctrl + Down Arrow | Collapse player |
 | Ctrl + X | Close player |
-| R | Toggle repeat |
-| S | Toggle shuffle |
-| M | Toggle mute |
-| Shift + D | Download current track |
-| Shift + C | Cancel active download |
-| Shift + Left Arrow / Shift + Right Arrow | Switch player tabs |
-| Ctrl + M | Focus the search bar |
-| Escape | Close the current menu |
-| Shift + ? | View all keyboard shortcuts |
+| Shift + Right Arrow | Next view (Queue/Related) |
+| Shift + Left Arrow | Previous view |
+| Ctrl + M | Search music |
+| Escape | Close menu or popup |
+| Shift + ? | Show shortcuts |
 
 ---
 

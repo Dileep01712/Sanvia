@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Section from "./sections/Section";
 import SkeletonCard from "./ui/SkeletonCard";
 import SongCard from "./ui/SongCard";
@@ -12,6 +12,8 @@ const PLAYS_PER_REGENERATION = 6;
 export default function HomeFeed() {
     const [isHydrated, setIsHydrated] = useState(false);
     const [sessionPlays, setSessionPlays] = useState(0);
+    const [lastRegenerationPlay, setLastRegenerationPlay] = useState(0);
+    const isFetchingMadeForYouRef = useRef(false);
 
     const newReleases = usePlayerStore((state) => state.newReleases);
     const nowTrendingSongs = usePlayerStore((state) => state.nowTrendingSongs);
@@ -36,18 +38,35 @@ export default function HomeFeed() {
 
     useEffect(() => {
         if (!isHydrated) return;
+        if (isFetchingMadeForYouRef.current) return;
 
-        const shouldGenerate = madeForYou.length === 0 || sessionPlays >= PLAYS_PER_REGENERATION;
+        const shouldGenerate =
+            madeForYou.length === 0 ||
+            sessionPlays - lastRegenerationPlay >= PLAYS_PER_REGENERATION;
 
-        if (shouldGenerate) {
-            fetchMadeForYou(history).then((songs) => {
+        if (!shouldGenerate) return;
+
+        isFetchingMadeForYouRef.current = true;
+        const triggeredAt = sessionPlays;
+
+        fetchMadeForYou(history)
+            .then((songs) => {
                 if (songs.length > 0) {
                     setMadeForYou(songs);
-                    setSessionPlays(0);
+                    setLastRegenerationPlay(triggeredAt);
                 }
+            })
+            .finally(() => {
+                isFetchingMadeForYouRef.current = false;
             });
-        }
-    }, [isHydrated, history, madeForYou.length, sessionPlays, setMadeForYou]);
+    }, [
+        isHydrated,
+        sessionPlays,
+        lastRegenerationPlay,
+        madeForYou.length,
+        history,
+        setMadeForYou,
+    ]);
 
     const recentSongs = useMemo(() => {
         const allRecent = currentSong

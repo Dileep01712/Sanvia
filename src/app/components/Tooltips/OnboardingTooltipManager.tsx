@@ -127,16 +127,19 @@ export default function OnboardingTooltipManager({ id }: OnboardingTooltipManage
                 ? "Tap the toggle to switch between views."
                 : "Click the toggle to switch between views.";
         }
+
         if (tipId === "swipe-to-queue-tip") {
             return touchDevice
                 ? "Long-press on any track for more options."
                 : "Right-click on any track for more options.";
         }
+
         if (tipId === "card-more-options-tip") {
             return touchDevice
-                ? "Long-press on any card for more options."
-                : "Right-click on any card for more options.";
+                ? "Swipe any card for quick actions, or long-press for more options."
+                : "Swipe any card for quick actions, or right-click for more options.";
         }
+        
         return currentTip?.message || "";
     };
 
